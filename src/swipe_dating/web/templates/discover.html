@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Swipe · Swipe R&D{% endblock %}
+{% block content %}
+  <header class="section-heading">
+    <div>
+      <span class="eyebrow">SWIPE</span>
+      <h1>One profile. One decision.</h1>
+      <p class="muted">Pass, like, or report a suspected bot. No setup required.</p>
+    </div>
+  </header>
+
+  {% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+  {% if notice %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
+
+  {% if candidate %}
+    <article class="profile-card">
+      <div
+        class="profile-visual"
+        role="img"
+        aria-label="Synthetic profile placeholder for {{ candidate.candidate.display_name }}"
+      >
+        <span>{{ candidate.candidate.display_name[0] }}</span>
+        <small>SYNTHETIC PROFILE</small>
+      </div>
+      <div class="profile-content">
+        <div class="profile-meta">
+          <span class="score-pill">{{ candidate.result.score }}% alignment</span>
+          <span>{{ candidate.candidate.age_band }}</span>
+        </div>
+        <h2>{{ candidate.candidate.display_name }}</h2>
+        <p class="profile-about">{{ candidate.candidate.about }}</p>
+        <div class="tag-row">
+          {% for tag in candidate.candidate.lifestyle_tags %}
+            <span>{{ tag.replace('_', ' ') }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="card-divider"></div>
+        <form class="decision-form" action="/discover/interest" method="post">
+          <input type="hidden" name="candidate_id" value="{{ candidate.candidate.id }}">
+          <button class="button primary" type="submit">Like</button>
+        </form>
+
+        <div class="secondary-actions">
+          <form action="/discover/pass" method="post">
+            <input type="hidden" name="candidate_id" value="{{ candidate.candidate.id }}">
+            <button class="button quiet" type="submit">Pass</button>
+          </form>
+          <form action="/discover/report" method="post">
+            <input type="hidden" name="candidate_id" value="{{ candidate.candidate.id }}">
+            <input type="hidden" name="reason" value="automation_pattern">
+            <button class="button report" type="submit">Report suspected bot</button>
+          </form>
+        </div>
+      </div>
+    </article>
+  {% else %}
+    <section class="panel empty-state">
+      <span class="eyebrow">QUEUE COMPLETE</span>
+      <h2>No synthetic profiles remain.</h2>
+      <p class="muted">Start a fresh browser session to reset this local-only demo.</p>
+    </section>
+  {% endif %}
+{% endblock %}

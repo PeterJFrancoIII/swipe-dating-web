@@ -1,0 +1,189 @@
+"""Executable allowlist for the unencrypted local R&D profile file."""
+
+from __future__ import annotations
+
+import json
+import time
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from typing import Final
+
+from swipe_dating.domain.models import iso_from_ms
+
+LOCAL_STATE_KEY: Final = "@swipe/rnd/local-state"
+LOCAL_STATE_SCHEMA_VERSION: Final = 2
+ALLOWED_TABS: Final = frozenset({"Swipe"})
+
+
+@dataclass(frozen=True, slots=True)
+class LocalProfile:
+    display_name: str = ""
+    about: str = ""
+    pronouns: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class LocalCosmetics:
+    owned_skin_ids: tuple[str, ...] = ()
+    selected_skin_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class LocalUi:
+    haptics_enabled: bool = True
+    last_tab: str = "Swipe"
+
+
+@dataclass(frozen=True, slots=True)
+class LocalState:
+    profile: LocalProfile = LocalProfile()
+    cosmetics: LocalCosmetics = LocalCosmetics()
+    ui: LocalUi = LocalUi()
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "profile": {
+                "displayName": self.profile.display_name,
+                "about": self.profile.about,
+                "pronouns": self.profile.pronouns,
+            },
+            "cosmetics": {
+                "ownedSkinIds": list(self.cosmetics.owned_skin_ids),
+                "selectedSkinId": self.cosmetics.selected_skin_id,
+            },
+            "ui": {
+                "hapticsEnabled": self.ui.haptics_enabled,
+                "lastTab": self.ui.last_tab,
+            },
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationResult:
+    state: LocalState
+    migrated_from: int | None
+    recovered: bool
+    reason: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class DeserializedLocalState:
+    state: LocalState
+    saved_at: str | None
+    migrated_from: int | None
+    recovered: bool
+    reason: str | None
+
+
+def create_default_local_state() -> LocalState:
+    return LocalState()
+
+
+def sanitize_local_state(value: object) -> LocalState:
+    source = _as_mapping(value)
+    profile = _as_mapping(source.get("profile"))
+    cosmetics = _as_mapping(source.get("cosmetics"))
+    ui = _as_mapping(source.get("ui"))
+    owned_skin_ids = _unique_strings(cosmetics.get("ownedSkinIds"), 50, 80)
+    selected_skin_id = _clean_string(cosmetics.get("selectedSkinId"), 80) or None
+    haptics_enabled = ui.get("hapticsEnabled")
+    return LocalState(
+        profile=LocalProfile(
+            display_name=_clean_string(profile.get("displayName"), 64),
+            about=_clean_string(profile.get("about"), 500),
+            pronouns=_clean_string(profile.get("pronouns"), 40),
+        ),
+        cosmetics=LocalCosmetics(
+            owned_skin_ids=owned_skin_ids,
+            selected_skin_id=(selected_skin_id if selected_skin_id in owned_skin_ids else None),
+        ),
+        ui=LocalUi(
+            haptics_enabled=haptics_enabled if isinstance(haptics_enabled, bool) else True,
+            last_tab=(str(ui["lastTab"]) if ui.get("lastTab") in ALLOWED_TABS else "Swipe"),
+        ),
+    )
+
+
+def migrate_local_state(value: object) -> MigrationResult:
+    raw = _as_mapping(value)
+    if not isinstance(value, Mapping):
+        return MigrationResult(create_default_local_state(), None, True, "invalid_shape")
+    schema_version = raw.get("schemaVersion")
+    if type(schema_version) is int and schema_version == LOCAL_STATE_SCHEMA_VERSION:
+        return MigrationResult(sanitize_local_state(raw), None, False, None)
+    if type(schema_version) is int and schema_version == 1:
+        state = sanitize_local_state(
+            {
+                "profile": {
+                    "displayName": raw.get("profileName"),
+                    "about": raw.get("bio"),
+                    "pronouns": raw.get("pronouns"),
+                },
+                "cosmetics": {
+                    "ownedSkinIds": raw.get("ownedSkins"),
+                    "selectedSkinId": raw.get("selectedSkin"),
+                },
+                "ui": {
+                    "hapticsEnabled": raw.get("hapticsEnabled"),
+                    "lastTab": raw.get("lastTab"),
+                },
+            }
+        )
+        return MigrationResult(state, 1, False, None)
+    migrated_from = schema_version if type(schema_version) is int else None
+    return MigrationResult(create_default_local_state(), migrated_from, True, "unsupported_schema")
+
+
+def serialize_local_state(value: object, *, now_ms: int | float | None = None) -> str:
+    state = sanitize_local_state(value)
+    payload = {
+        "schemaVersion": LOCAL_STATE_SCHEMA_VERSION,
+        "savedAt": iso_from_ms(time.time() * 1_000 if now_ms is None else now_ms),
+        **state.to_dict(),
+    }
+    return json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
+
+
+def deserialize_local_state(text: str | None) -> DeserializedLocalState:
+    if not isinstance(text, str) or not text:
+        return DeserializedLocalState(create_default_local_state(), None, None, False, None)
+    try:
+        raw = json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return DeserializedLocalState(
+            create_default_local_state(), None, None, True, "invalid_json"
+        )
+    migrated = migrate_local_state(raw)
+    saved_at = raw.get("savedAt") if isinstance(raw, Mapping) else None
+    return DeserializedLocalState(
+        state=migrated.state,
+        saved_at=saved_at if isinstance(saved_at, str) else None,
+        migrated_from=migrated.migrated_from,
+        recovered=migrated.recovered,
+        reason=migrated.reason,
+    )
+
+
+def _as_mapping(value: object) -> Mapping[str, object]:
+    if isinstance(value, LocalState):
+        return value.to_dict()
+    if isinstance(value, Mapping):
+        return value
+    return {}
+
+
+def _clean_string(value: object, max_length: int) -> str:
+    return value.strip()[:max_length].rstrip() if isinstance(value, str) else ""
+
+
+def _unique_strings(value: object, max_items: int, max_length: int) -> tuple[str, ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes, bytearray)):
+        return ()
+    result: list[str] = []
+    for entry in value:
+        cleaned = _clean_string(entry, max_length)
+        if cleaned and cleaned not in result:
+            result.append(cleaned)
+        if len(result) >= max_items:
+            break
+    return tuple(result)

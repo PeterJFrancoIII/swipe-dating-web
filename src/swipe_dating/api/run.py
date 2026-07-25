@@ -1,0 +1,17 @@
+"""Local development entry point for the synthetic FastAPI adapter."""
+
+from __future__ import annotations
+
+import os
+
+import uvicorn
+
+
+def main() -> None:
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", "8080"))
+    uvicorn.run("swipe_dating.api.app:app", host=host, port=port, reload=False)
+
+
+if __name__ == "__main__":
+    main()

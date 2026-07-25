@@ -1,0 +1,16 @@
+.DS_Store
+.coverage
+.hypothesis/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+.worktrees/
+__pycache__/
+build/
+dist/
+htmlcov/
+*.egg-info/
+*.py[cod]
+*.sqlite3
+local-state.json

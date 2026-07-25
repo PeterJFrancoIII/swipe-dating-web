@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f6f1ea">
+    <title>{% block title %}Swipe R&D{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/app.css') }}">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <div class="ambient ambient-one" aria-hidden="true"></div>
+    <div class="ambient ambient-two" aria-hidden="true"></div>
+    <header class="app-header">
+      <a class="brand" href="{{ '/discover' if session.adult_accepted else '/' }}">
+        <span class="brand-mark" aria-hidden="true">S</span>
+        <span>
+          <strong>Swipe</strong>
+          <small>Product-reset R&D</small>
+        </span>
+      </a>
+      <span class="synthetic-badge">PYTHON · SYNTHETIC ONLY</span>
+    </header>
+
+    {% if session.adult_accepted %}
+      <nav class="app-nav" aria-label="Primary navigation">
+        <a href="/discover" class="{{ 'active' if current_path == '/discover' else '' }}"{% if current_path == '/discover' %} aria-current="page"{% endif %}>Swipe</a>
+        <a href="/matches" class="{{ 'active' if current_path == '/matches' else '' }}"{% if current_path == '/matches' %} aria-current="page"{% endif %}>Matches</a>
+      </nav>
+    {% endif %}
+
+    <main id="main-content" class="page-shell" tabindex="-1">
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+      Local synthetic research build. No real users, authentication, moderation, or production safety coverage.
+    </footer>
+  </body>
+</html>

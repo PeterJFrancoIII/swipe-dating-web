@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Adults only · Swipe R&D{% endblock %}
+{% block content %}
+  <section class="gate-layout">
+    <div class="gate-copy">
+      <span class="eyebrow">LOCAL RESEARCH BUILD</span>
+      <h1>Adults 18+ only.</h1>
+      <p class="lede">
+        Enter an exact birth date to open the synthetic experience. The date stays in memory
+        for this browser session and is never written to the local profile file.
+      </p>
+      <div class="boundary-list" aria-label="Research boundaries">
+        <span>No real profiles</span>
+        <span>No real messages</span>
+        <span>No location collection</span>
+      </div>
+    </div>
+
+    <form class="panel gate-card" action="/age-gate" method="post">
+      <div>
+        <span class="step-label">AGE CHECK</span>
+        <h2>Enter your birth date</h2>
+        <p id="birth-date-help" class="muted">
+          Use YYYY-MM-DD. Your browser may display the date in your local format.
+        </p>
+      </div>
+      {% if error %}
+        <div class="alert error" role="alert">{{ error }}</div>
+      {% endif %}
+      <label for="birth_date">Birth date</label>
+      <input
+        id="birth_date"
+        name="birth_date"
+        type="date"
+        autocomplete="bday"
+        aria-describedby="birth-date-help"
+        value="{{ birth_date if error else '' }}"
+        required
+      >
+      <button class="button primary full" type="submit">Enter synthetic app</button>
+      <p class="fine-print">
+        There is no parental-consent bypass. Eligibility fails closed when the date cannot be
+        established.
+      </p>
+    </form>
+  </section>
+{% endblock %}

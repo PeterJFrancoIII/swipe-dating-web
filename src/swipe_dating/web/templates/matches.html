@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Matches · Swipe R&D{% endblock %}
+{% block content %}
+  <header class="section-heading">
+    <div>
+      <span class="eyebrow">MATCHES</span>
+      <h1>Reciprocal or nothing.</h1>
+      <p class="muted">A match appears only when both synthetic profiles express interest.</p>
+    </div>
+  </header>
+
+  {% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+  {% if notice %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
+
+  {% if matches %}
+    <div class="match-grid">
+      {% for match in matches %}
+        <article class="panel match-card">
+          <span class="mini-avatar" aria-hidden="true">{{ match.candidate.display_name[0] }}</span>
+          <div>
+            <span class="eyebrow">It’s a match</span>
+            <h2>{{ match.candidate.display_name }}</h2>
+            <p class="fine-print">
+              Messaging and meetup pressure land in a later PR. This shell only proves reciprocal match.
+            </p>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <section class="panel empty-state">
+      <span class="eyebrow">NO MATCHES YET</span>
+      <h2>Keep the decision loop simple.</h2>
+      <p class="muted">Return to Swipe and like a synthetic reciprocal profile.</p>
+      <a class="button primary inline-button" href="/discover">Open Swipe</a>
+    </section>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,46 @@
+{
+  "metadata": {
+    "sourceRepository": "PeterJFrancoIII/swipe-dating",
+    "sourceCommit": "5c6b35e8b133f4b34224785eb4fc1e7ab61423a4",
+    "generatedFrom": "JavaScript modules at the pinned commit"
+  },
+  "adult": [false, true, true],
+  "weights": {
+    "intent": 45,
+    "boundaries": 15,
+    "lifestyle": 10,
+    "alignment": 25,
+    "distance": 5
+  },
+  "discovery": {
+    "eligible": true,
+    "score": 75,
+    "exclusions": [],
+    "explanation": [
+      {"key": "boundaries", "component": 100, "weight": 25},
+      {"key": "alignment", "component": 84, "weight": 20},
+      {"key": "intent", "component": 50, "weight": 30},
+      {"key": "lifestyle", "component": 67, "weight": 15},
+      {"key": "distance", "component": 80, "weight": 10}
+    ]
+  },
+  "proximity": "buzz_and_prompt",
+  "location": {
+    "shareId": "s1",
+    "senderProfileId": "a",
+    "recipientProfileId": "b",
+    "mode": "live_15_minutes",
+    "issuedAtMs": 1000,
+    "expiresAtMs": 901000,
+    "sequence": 1,
+    "preciseConfirmation": true,
+    "revokedAtMs": null
+  },
+  "risk": {
+    "score": 30,
+    "action": "throttle",
+    "reasons": ["lower_trust_device"]
+  },
+  "encounter": "e551c70467a7ce4b8e8472a0cb78b342",
+  "quota": "3027535353cf802e0772730e9dd26851faba0241b5bd55681e920b2a718fced7"
+}
