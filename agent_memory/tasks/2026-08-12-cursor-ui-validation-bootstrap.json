@@ -1,0 +1,93 @@
+{
+  "schema": "cursor_task.v1",
+  "id": "2026-08-12-cursor-ui-validation-bootstrap",
+  "status": "assigned",
+  "priority": "P0",
+  "kind": "ui_validation_bootstrap",
+  "goal": "Verify the shared-memory protocol and prepare a no-code UI testing session for the product owner without modifying product code.",
+  "required_ref": "agent/full-canonical-web-build",
+  "required_reads": [
+    "AGENTS.md",
+    "PRODUCT_SCOPE.md",
+    "agent_memory/STATE.json",
+    "agent_memory/ACTIVE_TASK.json",
+    "agent_memory/tasks/2026-08-12-cursor-ui-validation-bootstrap.json",
+    "README.md"
+  ],
+  "memory_ack": {
+    "required": true,
+    "format": "MEMORY_ACK {\"head\":\"<git-head-sha>\",\"refs\":[\"PRODUCT_SCOPE.md@<head>\",\"agent_memory/STATE.json@<head>\",\"agent_memory/ACTIVE_TASK.json@<head>\",\"agent_memory/tasks/2026-08-12-cursor-ui-validation-bootstrap.json@<head>\"]}"
+  },
+  "scope": {
+    "product_changes": false,
+    "allowed_writes": [
+      "agent_memory/evidence/2026-08-12-cursor-ui-validation-bootstrap.json"
+    ],
+    "forbidden_writes": [
+      "PRODUCT_SCOPE.md",
+      "AGENTS.md",
+      ".cursor/**",
+      ".github/**",
+      "src/**",
+      "tests/**",
+      "docs/**",
+      "README.md",
+      "agent_memory/STATE.json",
+      "agent_memory/ACTIVE_TASK.json",
+      "agent_memory/tasks/**",
+      "agent_memory/DECISIONS.ndjson"
+    ]
+  },
+  "execution": [
+    "Confirm current branch is agent/full-canonical-web-build and sync latest remote head.",
+    "Confirm working tree is clean before execution.",
+    "Run uv sync --all-extras --locked.",
+    "Run uv run playwright install chromium.",
+    "Start the web app in a persistent terminal with SWIPE_WEB_OPEN_BROWSER=0 PORT=8081 uv run swipe-web.",
+    "Run SWIPE_WEB_URL=http://127.0.0.1:8081 uv run python scripts/browser_acceptance.py.",
+    "If acceptance passes, leave the app terminal running and give the product owner the clickable URL http://127.0.0.1:8081 plus UI-only test actions: enter an adult birth date, inspect Swipe, like/pass, inspect Filters/Profile, create a reciprocal match, open chat, try meetup, report/community review, block/unmatch.",
+    "Do not fix product issues in this task. Record any failure/blocker exactly and stop."
+  ],
+  "acceptance": [
+    "MEMORY_ACK is emitted before task execution.",
+    "No product/repository files are modified except the authorized evidence file.",
+    "Web app launches locally on 127.0.0.1:8081.",
+    "Browser acceptance command passes, or an exact blocker is recorded without product edits.",
+    "Owner receives only clickable/UI instructions, never terminal/Git/coding instructions.",
+    "Evidence file is committed and pushed to agent/full-canonical-web-build with a diff containing only that evidence path."
+  ],
+  "evidence": {
+    "path": "agent_memory/evidence/2026-08-12-cursor-ui-validation-bootstrap.json",
+    "schema": {
+      "task_id": "string",
+      "status": "ready_for_architect_review|blocked",
+      "head_before": "git_sha",
+      "memory_refs": "string[]",
+      "commands": "array<{command,status,summary}>",
+      "browser_acceptance": "pass|fail",
+      "ui_test_url": "string|null",
+      "product_files_changed": "string[]",
+      "evidence_only_commit": "git_sha|null",
+      "blockers": "string[]"
+    }
+  },
+  "git_write_policy": {
+    "commit": true,
+    "push": true,
+    "branch": "agent/full-canonical-web-build",
+    "only_path": "agent_memory/evidence/2026-08-12-cursor-ui-validation-bootstrap.json",
+    "commit_message": "agent-evidence: UI validation bootstrap"
+  },
+  "stop_conditions": [
+    "Branch mismatch after sync.",
+    "Dirty working tree contains changes not created by this task.",
+    "Any required shared-memory file is absent or contradictory.",
+    "Any product code change appears necessary.",
+    "Browser acceptance fails for a product reason."
+  ],
+  "completion": {
+    "required_tail": ["MEMORY_CITATIONS", "ready_for_architect_review"],
+    "self_approval": false,
+    "merge": false
+  }
+}
