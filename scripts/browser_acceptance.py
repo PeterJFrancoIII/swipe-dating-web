@@ -63,9 +63,7 @@ def enter_synthetic_app(page: Page, base_url: str) -> None:
 
 
 def verify_swipe(page: Page) -> None:
-    expect(
-        page.get_by_role("img", name="Synthetic profile placeholder for Alex")
-    ).to_be_visible()
+    expect(page.get_by_role("img", name="Synthetic profile placeholder for Alex")).to_be_visible()
     expect(page.locator(".alignment-badge")).to_contain_text("% aligned")
     expect(page.get_by_role("button", name="Pass Alex")).to_be_visible()
     expect(page.get_by_role("button", name="Like Alex")).to_be_visible()
