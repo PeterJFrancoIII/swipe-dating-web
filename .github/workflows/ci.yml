@@ -6,7 +6,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify:
@@ -17,6 +17,8 @@ jobs:
         python-version: ["3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python-version }}
@@ -24,16 +26,16 @@ jobs:
       - run: uv sync --all-extras --locked
       - run: uv run python -m compileall -q src tests
       - run: uv run ruff format .
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ruff-formatted-${{ matrix.python-version }}
-          path: |
-            scripts/browser_acceptance.py
-            src/swipe_dating/application/session.py
-            src/swipe_dating/fixtures.py
-            src/swipe_dating/web/app.py
-            tests/integration/test_web.py
-            tests/unit/test_conversations.py
+      - name: Commit Ruff formatter output
+        if: matrix.python-version == '3.12' && github.event_name == 'pull_request'
+        run: |
+          if ! git diff --quiet -- scripts/browser_acceptance.py src/swipe_dating/application/session.py src/swipe_dating/fixtures.py src/swipe_dating/web/app.py tests/integration/test_web.py tests/unit/test_conversations.py; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add scripts/browser_acceptance.py src/swipe_dating/application/session.py src/swipe_dating/fixtures.py src/swipe_dating/web/app.py tests/integration/test_web.py tests/unit/test_conversations.py
+            git commit -m "Apply Ruff formatting"
+            git push origin HEAD:${GITHUB_HEAD_REF}
+          fi
       - run: uv run pytest --cov=swipe_dating --cov-branch --cov-report=term-missing
       - run: uv run ruff check .
       - run: uv run ruff format --check .
