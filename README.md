@@ -6,7 +6,7 @@ The current web experience includes:
 
 - exact fail-closed 18+ entry;
 - exactly two permanent tabs: **Swipe** and **Matches**;
-- focused profile-card discovery with pass, like, private reporting, optional drag gestures, and keyboard controls;
+- focused profile-card discovery with pass, like, private reporting, and prominent profile/filter controls;
 - nested profile and intent/boundary filters with fixed product-controlled ranking weights;
 - reciprocal matching only;
 - match chat with an initial 20-message limit, a one-time synthetic mutual-extension path, meetup planning, unmatch, block, and report;
@@ -15,7 +15,7 @@ The current web experience includes:
 - temporary discovery containment, subject appeal, synthetic adjudication, and moderation-reputation consequences for wrong votes;
 - block behavior that purges visible chat content and suppresses rediscovery.
 
-The UI uses original branding, copy, styling, and synthetic visual placeholders. It follows common high-quality dating-product principles such as a dominant profile, low-friction decisions, compact match inbox, and progressive disclosure without copying another application's protected assets or distinctive trade dress.
+The UI uses original branding, copy, styling, and synthetic visual placeholders. It follows common high-quality dating-product principles such as a dominant profile, low-friction decisions, compact match inbox, and progressive disclosure without copying another application's protected assets or distinctive trade dress. The governed client surface remains server-rendered Python/Jinja plus CSS; repository governance intentionally rejects JavaScript application surfaces.
 
 Nearby Mode, Match Map/location sharing, and Skin Shop commerce remain feature-gated until the prerequisite acceptance and safety work in `PRODUCT_SCOPE.md` is complete.
 
