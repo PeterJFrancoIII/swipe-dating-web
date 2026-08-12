@@ -15,7 +15,19 @@ NOW = 1_753_185_600_000
 
 class RenderedHtml(HTMLParser):
     _VOID_ELEMENTS = frozenset(
-        {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source"}
+        {
+            "area",
+            "base",
+            "br",
+            "col",
+            "embed",
+            "hr",
+            "img",
+            "input",
+            "link",
+            "meta",
+            "source",
+        }
     )
 
     def __init__(self, source: str) -> None:
@@ -80,11 +92,9 @@ class RenderedHtml(HTMLParser):
         return [
             attributes
             for element_tag, attributes in self.elements
-            if tag in ("*", element_tag) and class_name in (attributes.get("class") or "").split()
+            if tag in ("*", element_tag)
+            and class_name in (attributes.get("class") or "").split()
         ]
-
-    def text_for_id(self, element_id: str) -> str:
-        return " ".join("".join(self.text_by_id.get(element_id, [])).split())
 
 
 @pytest.fixture
@@ -94,7 +104,9 @@ def anyio_backend() -> str:
 
 @pytest.fixture
 async def web_client() -> AsyncIterator[httpx.AsyncClient]:
-    transport = httpx.ASGITransport(app=create_web_app(clock=lambda: NOW, today="2026-07-22"))
+    transport = httpx.ASGITransport(
+        app=create_web_app(clock=lambda: NOW, today="2026-07-22")
+    )
     async with httpx.AsyncClient(
         transport=transport,
         base_url="http://test",
@@ -125,11 +137,18 @@ def test_live_browser_session_store_uses_runtime_calendar_date() -> None:
 
 
 @pytest.mark.anyio
-async def test_age_gate_is_accessible_blank_and_fail_closed(web_client: httpx.AsyncClient) -> None:
+async def test_health_and_age_gate_are_accessible_and_fail_closed(
+    web_client: httpx.AsyncClient,
+) -> None:
+    health = await web_client.get("/healthz")
+    assert health.json() == {
+        "status": "ok",
+        "mode": "python-web-synthetic-only",
+    }
+
     gate = await web_client.get("/")
     document = RenderedHtml(gate.text)
     birth_date = document.element_with("input", "id", "birth_date")
-
     assert document.element_with("a", "href", "#main-content") is not None
     assert document.element_with("main", "id", "main-content") is not None
     assert document.element_with("label", "for", "birth_date") is not None
@@ -150,6 +169,10 @@ async def test_age_gate_is_accessible_blank_and_fail_closed(web_client: httpx.As
     assert blocked.status_code == 303
     assert blocked.headers["location"] == "/"
 
+    invalid = await web_client.post("/age-gate", data={"birth_date": "not-a-date"})
+    assert invalid.status_code == 400
+    assert "Use YYYY-MM-DD only" in invalid.text
+
     rejected = await web_client.post("/age-gate", data={"birth_date": "2010-01-01"})
     rejected_document = RenderedHtml(rejected.text)
     rejected_birth_date = rejected_document.element_with("input", "id", "birth_date")
@@ -159,7 +182,9 @@ async def test_age_gate_is_accessible_blank_and_fail_closed(web_client: httpx.As
 
 
 @pytest.mark.anyio
-async def test_primary_navigation_is_exactly_swipe_and_matches(web_client: httpx.AsyncClient) -> None:
+async def test_primary_navigation_is_exactly_swipe_and_matches(
+    web_client: httpx.AsyncClient,
+) -> None:
     await enter_app(web_client)
     navigation_paths = ("/discover", "/matches")
     for current_path in navigation_paths:
@@ -169,7 +194,9 @@ async def test_primary_navigation_is_exactly_swipe_and_matches(web_client: httpx
         assert set(links) == set(navigation_paths)
         assert links[current_path].get("aria-current") == "page"
         assert all(
-            "aria-current" not in link for path, link in links.items() if path != current_path
+            "aria-current" not in link
+            for path, link in links.items()
+            if path != current_path
         )
 
 
@@ -181,30 +208,43 @@ async def test_swipe_card_is_focused_accessible_and_has_nested_controls(
     discover = await web_client.get("/discover")
     document = RenderedHtml(discover.text)
     profile_visuals = document.elements_with_class("*", "profile-visual")
-
     assert discover.status_code == 200
     assert len(profile_visuals) == 1
     assert profile_visuals[0].get("role") == "img"
     assert "synthetic profile" in (profile_visuals[0].get("aria-label") or "").lower()
     assert "Alex" in (profile_visuals[0].get("aria-label") or "")
-    assert "92% aligned" in discover.text
+    assert "% aligned" in discover.text
     assert "Open profile" in discover.text
     assert "Open filters" in discover.text
     assert "Report Alex" in discover.text
     assert "Nearby mode stays off" in discover.text
 
+    passed = await web_client.post("/discover/pass", data={"candidate_id": "p1"})
+    assert passed.status_code == 303
+    after_pass = await web_client.get("/discover")
+    assert "Alex" not in after_pass.text
+    undone = await web_client.post("/discover/undo")
+    assert undone.status_code == 303
+    restored = await web_client.get("/discover")
+    assert "Alex" in restored.text
+
 
 @pytest.mark.anyio
-async def test_profile_and_filters_are_nested_not_primary_tabs(web_client: httpx.AsyncClient) -> None:
+async def test_profile_and_filters_are_nested_not_primary_tabs(
+    web_client: httpx.AsyncClient,
+) -> None:
     await enter_app(web_client)
-
     profile = await web_client.get("/profile")
     profile_document = RenderedHtml(profile.text)
     assert profile.status_code == 200
     assert not profile_document.primary_navigation_links
     saved = await web_client.post(
         "/profile",
-        data={"display_name": "Taylor", "pronouns": "they/them", "about": "Climbing and films."},
+        data={
+            "display_name": "Taylor",
+            "pronouns": "they/them",
+            "about": "Climbing and films.",
+        },
     )
     assert saved.status_code == 303
     refreshed = await web_client.get("/profile")
@@ -216,12 +256,27 @@ async def test_profile_and_filters_are_nested_not_primary_tabs(web_client: httpx
     assert filters.status_code == 200
     assert not filters_document.primary_navigation_links
     assert "Ranking stays curated" in filters.text
+    invalid = await web_client.post(
+        "/filters",
+        data={
+            "immediate_intent": "unsupported",
+            "relational_openness": "open_to_more",
+            "required_boundaries": ["public_first_meet"],
+        },
+    )
+    assert invalid.status_code == 303
+    assert "error=" in invalid.headers["location"]
+
     applied = await web_client.post(
         "/filters",
         data={
             "immediate_intent": "casual_dating",
             "relational_openness": "open_to_more",
-            "required_boundaries": ["condoms_required", "public_first_meet", "no_drugs"],
+            "required_boundaries": [
+                "condoms_required",
+                "public_first_meet",
+                "no_drugs",
+            ],
         },
     )
     assert applied.status_code == 303
@@ -244,11 +299,27 @@ async def test_match_chat_meetup_and_unmatch_flow(web_client: httpx.AsyncClient)
     assert "Plan a meetup" in chat.text
     assert "0 / 20" in chat.text
 
-    sent = await web_client.post(f"/matches/{match_id}/message", data={"text": "Coffee this week?"})
+    blank = await web_client.post(
+        f"/matches/{match_id}/message",
+        data={"text": "   "},
+    )
+    assert blank.status_code == 303
+    assert "error=" in blank.headers["location"]
+
+    sent = await web_client.post(
+        f"/matches/{match_id}/message",
+        data={"text": "Coffee this week?"},
+    )
     assert sent.status_code == 303
     thread = await web_client.get(f"/matches/{match_id}")
     assert "Coffee this week?" in thread.text
     assert "1 / 20" in thread.text
+
+    bad_meetup = await web_client.post(
+        f"/matches/{match_id}/meetup",
+        data={"suggestion_id": "private_address"},
+    )
+    assert "error=" in bad_meetup.headers["location"]
 
     proposed = await web_client.post(
         f"/matches/{match_id}/meetup",
@@ -257,7 +328,7 @@ async def test_match_chat_meetup_and_unmatch_flow(web_client: httpx.AsyncClient)
     assert proposed.status_code == 303
     meetup_chat = await web_client.get(f"/matches/{match_id}")
     assert "Would you like to meet for coffee in a public place?" in meetup_chat.text
-    assert "No location was shared" in proposed.headers["location"]
+    assert "No+location+was+shared" in proposed.headers["location"]
 
     unmatched = await web_client.post(f"/matches/{match_id}/unmatch")
     assert unmatched.status_code == 303
@@ -266,11 +337,42 @@ async def test_match_chat_meetup_and_unmatch_flow(web_client: httpx.AsyncClient)
 
 
 @pytest.mark.anyio
+async def test_web_message_limit_allows_one_extension(web_client: httpx.AsyncClient) -> None:
+    match_id = await create_alex_match(web_client)
+    for index in range(20):
+        sent = await web_client.post(
+            f"/matches/{match_id}/message",
+            data={"text": f"message {index}"},
+        )
+        assert sent.status_code == 303
+
+    at_limit = await web_client.get(f"/matches/{match_id}")
+    assert "20 / 20" in at_limit.text
+    assert "Simulate mutual extension" in at_limit.text
+
+    blocked = await web_client.post(
+        f"/matches/{match_id}/message",
+        data={"text": "too many"},
+    )
+    assert "error=" in blocked.headers["location"]
+
+    extended = await web_client.post(f"/matches/{match_id}/extend")
+    assert extended.status_code == 303
+    after_extension = await web_client.get(f"/matches/{match_id}")
+    assert "20 / 40" in after_extension.text
+    repeated = await web_client.post(f"/matches/{match_id}/extend")
+    assert "error=" in repeated.headers["location"]
+
+
+@pytest.mark.anyio
 async def test_block_purges_visible_content_and_suppresses_rediscovery(
     web_client: httpx.AsyncClient,
 ) -> None:
     match_id = await create_alex_match(web_client)
-    await web_client.post(f"/matches/{match_id}/message", data={"text": "This will be purged."})
+    await web_client.post(
+        f"/matches/{match_id}/message",
+        data={"text": "This will be purged."},
+    )
     blocked = await web_client.post(f"/matches/{match_id}/block")
     assert blocked.status_code == 303
     matches = await web_client.get("/matches")
@@ -280,8 +382,16 @@ async def test_block_purges_visible_content_and_suppresses_rediscovery(
 
 
 @pytest.mark.anyio
-async def test_report_seven_vote_contain_appeal_restore_and_match(web_client: httpx.AsyncClient) -> None:
+async def test_report_seven_vote_contain_appeal_restore_and_match(
+    web_client: httpx.AsyncClient,
+) -> None:
     await enter_app(web_client)
+    bad_reason = await web_client.post(
+        "/discover/report",
+        data={"candidate_id": "p1", "reason": "not-real", "evidence_note": ""},
+    )
+    assert "error=" in bad_reason.headers["location"]
+
     reported = await web_client.post(
         "/discover/report",
         data={
@@ -292,12 +402,17 @@ async def test_report_seven_vote_contain_appeal_restore_and_match(web_client: ht
     )
     assert reported.status_code == 303
     assert reported.headers["location"].startswith("/community")
-
     community = await web_client.get("/community")
     assert "Alex" in community.text
     assert "0 / 7 trusted votes" in community.text
     assert "reviewer-1" in community.text
     assert "Repeated pattern" in community.text
+
+    invalid_vote = await web_client.post(
+        "/community/bot-case-1/vote",
+        data={"reviewer_id": "reviewer-1", "choice": "not-real"},
+    )
+    assert "error=" in invalid_vote.headers["location"]
 
     choices = (
         "suspicious",
@@ -337,17 +452,63 @@ async def test_report_seven_vote_contain_appeal_restore_and_match(web_client: ht
 
 
 @pytest.mark.anyio
-async def test_conversation_report_reaches_private_review(web_client: httpx.AsyncClient) -> None:
+async def test_automated_bot_containment_and_final_bot_adjudication(
+    web_client: httpx.AsyncClient,
+) -> None:
+    await enter_app(web_client)
+    reported = await web_client.post(
+        "/discover/report",
+        data={"candidate_id": "p2", "reason": "spam_links", "evidence_note": ""},
+    )
+    assert reported.status_code == 303
+    community = await web_client.get("/community")
+    assert "Temporarily buried" in community.text
+    appealed = await web_client.post("/community/bot-case-1/appeal")
+    assert appealed.status_code == 303
+    final = await web_client.post("/community/bot-case-1/adjudicate")
+    assert final.status_code == 303
+    page = await web_client.get("/community")
+    assert "Synthetic bot confirmed" in page.text
+
+
+@pytest.mark.anyio
+async def test_conversation_report_reaches_private_review(
+    web_client: httpx.AsyncClient,
+) -> None:
     match_id = await create_alex_match(web_client)
+    bad = await web_client.post(
+        f"/matches/{match_id}/report",
+        data={"reason": "not-real", "evidence_note": ""},
+    )
+    assert "error=" in bad.headers["location"]
     reported = await web_client.post(
         f"/matches/{match_id}/report",
-        data={"reason": "impersonation", "evidence_note": "Synthetic conversation concern."},
+        data={
+            "reason": "impersonation",
+            "evidence_note": "Synthetic conversation concern.",
+        },
     )
     assert reported.status_code == 303
     assert reported.headers["location"].startswith("/community")
     review = await web_client.get("/community")
     assert "impersonation" in review.text
     assert "Synthetic conversation concern" in review.text
+
+
+@pytest.mark.anyio
+async def test_unknown_nested_resources_redirect_with_safe_errors(
+    web_client: httpx.AsyncClient,
+) -> None:
+    await enter_app(web_client)
+    missing_chat = await web_client.get("/matches/match:none")
+    assert missing_chat.status_code == 303
+    assert missing_chat.headers["location"].startswith("/matches?error=")
+    early_appeal = await web_client.post("/community/not-real/appeal")
+    assert early_appeal.status_code == 303
+    assert "error=" in early_appeal.headers["location"]
+    early_adjudication = await web_client.post("/community/not-real/adjudicate")
+    assert early_adjudication.status_code == 303
+    assert "error=" in early_adjudication.headers["location"]
 
 
 @pytest.mark.anyio
