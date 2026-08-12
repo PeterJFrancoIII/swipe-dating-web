@@ -55,10 +55,7 @@ SYNTHETIC_PROFILES: Final = (
         id="p1",
         display_name="Alex",
         age_band="24",
-        about=(
-            "Coffee walks, tiny venues, climbing gyms, and making plans "
-            "that actually happen."
-        ),
+        about=("Coffee walks, tiny venues, climbing gyms, and making plans that actually happen."),
         immediate_intent="casual_dating",
         relational_openness="open_to_more",
         accepted_immediate_intents=(
@@ -89,8 +86,7 @@ SYNTHETIC_PROFILES: Final = (
         display_name="Jordan",
         age_band="25",
         about=(
-            "Trade work, pickup basketball, late-night food, and building "
-            "things with my hands."
+            "Trade work, pickup basketball, late-night food, and building things with my hands."
         ),
         immediate_intent="friends_with_benefits",
         relational_openness="relationship_possible",
@@ -125,10 +121,7 @@ SYNTHETIC_PROFILES: Final = (
         id="p3",
         display_name="Morgan",
         age_band="23",
-        about=(
-            "Museum afternoons, cooking experiments, co-op games, and very "
-            "good playlists."
-        ),
+        about=("Museum afternoons, cooking experiments, co-op games, and very good playlists."),
         immediate_intent="open_dating",
         relational_openness="open_to_more",
         accepted_immediate_intents=(
@@ -159,8 +152,7 @@ SYNTHETIC_PROFILES: Final = (
         display_name="Riley",
         age_band="22",
         about=(
-            "Sunday markets, film cameras, running by the river, and finding "
-            "the best dumplings."
+            "Sunday markets, film cameras, running by the river, and finding the best dumplings."
         ),
         immediate_intent="casual_dating",
         relational_openness="relationship_possible",
@@ -182,8 +174,7 @@ SYNTHETIC_PROFILES: Final = (
         display_name="Casey",
         age_band="24",
         about=(
-            "Bookstores, indie games, ceramics, and a soft spot for "
-            "aggressively specific trivia."
+            "Bookstores, indie games, ceramics, and a soft spot for aggressively specific trivia."
         ),
         immediate_intent="relationship_focused",
         relational_openness="seeking_relationship",
