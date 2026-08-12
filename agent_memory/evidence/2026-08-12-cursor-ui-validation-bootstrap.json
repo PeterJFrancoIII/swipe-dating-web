@@ -38,6 +38,6 @@
   "browser_acceptance": "pass",
   "ui_test_url": "http://127.0.0.1:8081",
   "product_files_changed": [],
-  "evidence_only_commit": null,
+  "evidence_only_commit": "31d70fc744737e50a1b6fb4c83052f0b0a551896",
   "blockers": []
 }
