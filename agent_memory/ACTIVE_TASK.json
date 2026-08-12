@@ -1,0 +1,8 @@
+{
+  "schema": "active_task.v1",
+  "task_id": "2026-08-12-cursor-ui-validation-bootstrap",
+  "task_path": "agent_memory/tasks/2026-08-12-cursor-ui-validation-bootstrap.json",
+  "assigned_to": "Cursor",
+  "status": "assigned",
+  "architect_review_required": true
+}

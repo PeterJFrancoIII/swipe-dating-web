@@ -1,0 +1,47 @@
+{
+  "schema": "shared_memory_state.v1",
+  "updated_at": "2026-08-12T17:29:00-04:00",
+  "repository": "PeterJFrancoIII/swipe-dating-web",
+  "canonical_product_master": "PRODUCT_SCOPE.md",
+  "working_branch": "agent/full-canonical-web-build",
+  "pull_request": 1,
+  "release_state": "PYTHON_RND_SYNTHETIC_ONLY",
+  "product_state": {
+    "client": "web_only_fastapi_jinja",
+    "permanent_navigation": ["Swipe", "Matches"],
+    "owner_ui_review": "pending",
+    "production": "blocked",
+    "real_user_closed_beta": "blocked"
+  },
+  "operator": {
+    "role": "product_owner_ui_tester",
+    "coding_expected": false,
+    "terminal_expected": false,
+    "git_expected": false,
+    "ci_expected": false,
+    "interaction_contract": "Agents perform technical operations. Ask the owner only for UI observations and product decisions."
+  },
+  "architect": {
+    "role": "ChatGPT",
+    "responsibilities": ["architecture", "task_packets", "acceptance_review", "shared_memory", "scope_control"]
+  },
+  "implementer": {
+    "role": "Cursor",
+    "may_self_assign": false,
+    "may_self_approve": false,
+    "must_cite_shared_memory": true
+  },
+  "active_task_id": "2026-08-12-cursor-ui-validation-bootstrap",
+  "known_green_product_baseline": {
+    "commit": "51679ad4408cf4fd170d7c020343124dbacfd432",
+    "python": ["3.12", "3.13"],
+    "tests_passed": 173,
+    "branch_coverage_percent": 91.58,
+    "ruff_lint": "pass",
+    "ruff_format": "pass",
+    "mypy": "pass",
+    "governance": "pass",
+    "simulation": "pass"
+  },
+  "merge_policy": "Do not merge PR 1 until architect review and product-owner UI review are complete or explicitly waived by the product owner."
+}

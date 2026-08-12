@@ -16,6 +16,9 @@ from swipe_dating.domain.models import (
     iso_from_ms,
 )
 
+INITIAL_MESSAGE_LIMIT = 20
+EXTENDED_MESSAGE_LIMIT = 40
+
 
 class MatchStatus(StrEnum):
     ACTIVE = "active"
@@ -71,6 +74,8 @@ class ConversationMatch:
     ended_at: str | None = None
     content_purged: bool = False
     messages: tuple[Message, ...] = ()
+    message_limit: int = INITIAL_MESSAGE_LIMIT
+    extension_used: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -211,8 +216,10 @@ def send_message(
     at_ms: int | float | None = None,
 ) -> ValueResult[ConversationState, Message]:
     match = _require_active_match(state, match_id)
+    if len(match.messages) >= match.message_limit:
+        raise DomainError("message_limit_reached")
     body = _normalize_message(text)
-    _ = shared_ground_tag  # Call-site compatibility only; openers are not required.
+    _ = shared_ground_tag
     message = Message(
         id=f"message-{state.next_message_sequence}",
         sender="local",
@@ -238,6 +245,8 @@ def receive_synthetic_reply(
     at_ms: int | float | None = None,
 ) -> ValueResult[ConversationState, Message]:
     match = _require_active_match(state, match_id)
+    if len(match.messages) >= match.message_limit:
+        raise DomainError("message_limit_reached")
     message = Message(
         id=f"message-{state.next_message_sequence}",
         sender="candidate",
@@ -253,6 +262,27 @@ def receive_synthetic_reply(
         next_message_sequence=state.next_message_sequence + 1,
     )
     return ValueResult(next_state, message)
+
+
+def extend_conversation(
+    state: ConversationState,
+    *,
+    match_id: str,
+) -> TransitionResult[ConversationState]:
+    match = _require_active_match(state, match_id)
+    if match.extension_used:
+        raise DomainError("message_extension_already_used")
+    if len(match.messages) < match.message_limit:
+        raise DomainError("message_extension_not_available")
+    next_match = replace(
+        match,
+        message_limit=EXTENDED_MESSAGE_LIMIT,
+        extension_used=True,
+    )
+    return TransitionResult(
+        _replace_match(state, match_id, next_match),
+        frozen_outcome(kind="message_limit_extended", match_id=match_id),
+    )
 
 
 def unmatch_conversation(
@@ -299,7 +329,6 @@ def block_conversation(
 
 
 def build_starter_suggestions(match: ConversationMatch) -> tuple[str, ...]:
-    # Forced openers are out of product scope; keep a small optional catalog for tests.
     name = match.candidate.display_name or "them"
     return (
         f"Hi {name} — what's something you're looking forward to this week?",
@@ -320,7 +349,7 @@ def build_meetup_suggestions(match: ConversationMatch) -> tuple[MeetupSuggestion
         ),
         MeetupSuggestion(
             "museum_daytime",
-            "Daytime public museum visit",
+            "Daytime museum visit",
             f"Would you like to visit a public museum during daytime hours? {safety}",
         ),
         MeetupSuggestion(
@@ -340,9 +369,6 @@ def send_meetup_proposal(
     at_ms: int | float | None = None,
 ) -> ValueResult[ConversationState, Message]:
     match = _require_active_match(state, match_id)
-    senders = {message.sender for message in match.messages}
-    if not {"local", "candidate"}.issubset(senders):
-        raise DomainError("meetup_requires_two_way_conversation")
     suggestions = {suggestion.id: suggestion for suggestion in build_meetup_suggestions(match)}
     try:
         suggestion = suggestions[suggestion_id]

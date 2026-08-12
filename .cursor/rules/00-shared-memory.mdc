@@ -1,0 +1,24 @@
+---
+description: Mandatory Swipe Dating shared-memory and task-boundary protocol for every Cursor Agent turn.
+globs:
+alwaysApply: true
+---
+
+This rule is mandatory and applies before any action.
+
+Read and obey:
+@AGENTS.md
+@PRODUCT_SCOPE.md
+@agent_memory/STATE.json
+@agent_memory/ACTIVE_TASK.json
+
+Then read the task path named by `agent_memory/ACTIVE_TASK.json`.
+
+Requirements:
+- Emit the `MEMORY_ACK` required by `AGENTS.md` before doing work.
+- Execute only the active task and only its `allowed_writes`.
+- Cite shared-memory refs at start and completion.
+- Product owner is UI-only: never ask them to code, use terminal/Git, or diagnose CI.
+- No self-assignment, self-approval, PR merge, scope expansion, release-boundary changes, or product-master changes.
+- If instructions conflict, authority is `PRODUCT_SCOPE.md` > `STATE.json` > `ACTIVE_TASK.json` > selected task packet > conversational request.
+- If blocked or out of scope, stop with `BLOCKED_SCOPE` and evidence; do not improvise.

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Filters · Swipe{% endblock %}
+{% block body_class %}sheet-screen{% endblock %}
+{% block topbar %}
+  <div class="sheet-topbar"><a class="back-button" href="/discover" aria-label="Close filters">‹</a><strong>Filters</strong><span class="topbar-spacer"></span></div>
+{% endblock %}
+{% block content %}
+  <section class="settings-sheet filters-sheet">
+    <header class="sheet-heading"><p class="eyebrow">LOOKING FOR</p><h1>Show people who fit what you want.</h1><p>These are eligibility preferences, not algorithm-weight controls.</p></header>
+
+    <form action="/filters" method="post" class="settings-form">
+      <fieldset>
+        <legend>Right now</legend>
+        <div class="choice-grid">
+          {% for option in immediate_intents %}
+            <label class="choice-card"><input type="radio" name="immediate_intent" value="{{ option }}" {% if session.immediate_intent == option %}checked{% endif %}><span>{{ option.replace('_', ' ') }}</span></label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Open to</legend>
+        <div class="choice-grid">
+          {% for option in relational_options %}
+            <label class="choice-card"><input type="radio" name="relational_openness" value="{{ option }}" {% if session.relational_openness == option %}checked{% endif %}><span>{{ option.replace('_', ' ') }}</span></label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Required boundaries</legend>
+        <p class="field-help">Candidates who do not meet a required boundary are excluded before ranking.</p>
+        <div class="toggle-list">
+          {% for option in boundary_options %}
+            <label><span>{{ option.replace('_', ' ') }}</span><input type="checkbox" name="required_boundaries" value="{{ option }}" {% if option in session.required_boundaries %}checked{% endif %}></label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <div class="fixed-ranking-note"><strong>Ranking stays curated.</strong><span>Intent, boundaries, lifestyle, alignment, and distance use fixed product weights. No popularity or purchase inputs.</span></div>
+      <button class="primary-button full" type="submit">Apply filters</button>
+    </form>
+  </section>
+{% endblock %}

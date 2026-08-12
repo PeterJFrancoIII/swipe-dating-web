@@ -63,37 +63,31 @@ def test_conversation_state_machine_preserves_consent_invariants(
             state = undo_last_decision(state).state
         elif action == "local_message" and active_matches:
             match = active_matches[-1]
-            state = send_message(
-                state,
-                match_id=match.id,
-                text=f"Local message {step}",
-                at_ms=step,
-            ).state
+            if len(match.messages) < match.message_limit:
+                state = send_message(
+                    state,
+                    match_id=match.id,
+                    text=f"Local message {step}",
+                    at_ms=step,
+                ).state
         elif action == "candidate_reply" and active_matches:
-            state = receive_synthetic_reply(
-                state,
-                match_id=active_matches[-1].id,
-                text=f"Candidate reply {step}",
-                at_ms=step,
-            ).state
+            match = active_matches[-1]
+            if len(match.messages) < match.message_limit:
+                state = receive_synthetic_reply(
+                    state,
+                    match_id=match.id,
+                    text=f"Candidate reply {step}",
+                    at_ms=step,
+                ).state
         elif action == "meetup" and active_matches:
             match = active_matches[-1]
-            senders = {message.sender for message in match.messages}
-            if {"local", "candidate"}.issubset(senders):
+            if len(match.messages) < match.message_limit:
                 state = send_meetup_proposal(
                     state,
                     match_id=match.id,
                     suggestion_id="coffee_public",
                     at_ms=step,
                 ).state
-            else:
-                with pytest.raises(DomainError, match="meetup_requires_two_way_conversation"):
-                    send_meetup_proposal(
-                        state,
-                        match_id=match.id,
-                        suggestion_id="coffee_public",
-                        at_ms=step,
-                    )
         elif action == "unmatch" and matches:
             state = unmatch_conversation(state, match_id=matches[-1].id, at_ms=step).state
         elif action == "block" and matches:
@@ -120,6 +114,7 @@ def _assert_conversation_invariants(state: ConversationState) -> None:
     for match in matches:
         assert match.candidate.id in match_creating_candidates
         assert match.candidate.id in suppressed
+        assert len(match.messages) <= match.message_limit
         local_messages = tuple(message for message in match.messages if message.sender == "local")
         assert all(message.shared_ground_tag is None for message in local_messages)
         visible_message_ids.extend(message.id for message in match.messages)

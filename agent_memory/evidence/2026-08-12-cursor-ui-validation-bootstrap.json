@@ -1,0 +1,43 @@
+{
+  "task_id": "2026-08-12-cursor-ui-validation-bootstrap",
+  "status": "ready_for_architect_review",
+  "head_before": "a5709614b7fbe18756e9d0fc481a5156575fa0f5",
+  "memory_refs": [
+    "PRODUCT_SCOPE.md@a5709614b7fbe18756e9d0fc481a5156575fa0f5",
+    "agent_memory/STATE.json@a5709614b7fbe18756e9d0fc481a5156575fa0f5",
+    "agent_memory/ACTIVE_TASK.json@a5709614b7fbe18756e9d0fc481a5156575fa0f5",
+    "agent_memory/tasks/2026-08-12-cursor-ui-validation-bootstrap.json@a5709614b7fbe18756e9d0fc481a5156575fa0f5"
+  ],
+  "commands": [
+    {
+      "command": "git fetch origin && git checkout agent/full-canonical-web-build && git pull --ff-only origin agent/full-canonical-web-build",
+      "status": "pass",
+      "summary": "Branch matched required_ref; HEAD a5709614b7fbe18756e9d0fc481a5156575fa0f5; working tree clean."
+    },
+    {
+      "command": "uv sync --all-extras --locked",
+      "status": "pass",
+      "summary": "Locked extras installed into .venv."
+    },
+    {
+      "command": "uv run playwright install chromium",
+      "status": "pass",
+      "summary": "Chromium installed for Playwright."
+    },
+    {
+      "command": "SWIPE_WEB_OPEN_BROWSER=0 PORT=8081 uv run swipe-web",
+      "status": "pass",
+      "summary": "Uvicorn running on http://127.0.0.1:8081; left running for owner UI testing."
+    },
+    {
+      "command": "SWIPE_WEB_URL=http://127.0.0.1:8081 uv run python scripts/browser_acceptance.py",
+      "status": "pass",
+      "summary": "Browser acceptance passed; screenshots: /var/folders/bd/z5nlpqdd0f51bv0j2_5l64580000gn/T/swipe-web"
+    }
+  ],
+  "browser_acceptance": "pass",
+  "ui_test_url": "http://127.0.0.1:8081",
+  "product_files_changed": [],
+  "evidence_only_commit": "31d70fc744737e50a1b6fb4c83052f0b0a551896",
+  "blockers": []
+}

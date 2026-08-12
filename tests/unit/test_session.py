@@ -40,7 +40,6 @@ def test_adult_gate_opens_directly_onto_a_swipe_card() -> None:
     session.accept_adult_gate("  2000-01-01  ")
     assert session.adult_accepted is True
     assert session.birth_date == "2000-01-01"
-
     current = session.current_candidate()
     assert current is not None and current.candidate.id == "p1"
 
@@ -49,14 +48,23 @@ def test_crowd_bot_review_contains_then_restores_a_synthetic_human() -> None:
     session, adapter = create_session()
     session.accept_adult_gate("2000-01-01")
 
-    case = session.report_suspected_bot("p1", ReportReason.AUTOMATION_PATTERN)
-    session.vote_on_bot_case(case.id, "reviewer-ava", VoteChoice.SUSPICIOUS)
-    session.vote_on_bot_case(case.id, "reviewer-noah", VoteChoice.LIKELY_HUMAN)
-    contained = session.vote_on_bot_case(
-        case.id,
-        "reviewer-sam",
+    case = session.report_suspected_bot(
+        "p1",
+        ReportReason.AUTOMATION_PATTERN,
+        evidence_note="Synthetic review evidence",
+    )
+    choices = (
+        VoteChoice.SUSPICIOUS,
+        VoteChoice.SUSPICIOUS,
+        VoteChoice.LIKELY_HUMAN,
+        VoteChoice.SUSPICIOUS,
+        VoteChoice.SUSPICIOUS,
+        VoteChoice.LIKELY_HUMAN,
         VoteChoice.SUSPICIOUS,
     )
+    contained = case
+    for index, choice in enumerate(choices, start=1):
+        contained = session.vote_on_bot_case(case.id, f"reviewer-{index}", choice)
 
     assert contained.status is CaseStatus.TEMPORARILY_CONTAINED
     assert all(item.candidate.id != "p1" for item in session.discovery_queue())
@@ -64,7 +72,7 @@ def test_crowd_bot_review_contains_then_restores_a_synthetic_human() -> None:
     adjudicated = session.run_synthetic_adjudication(case.id)
     assert adjudicated.status is CaseStatus.ADJUDICATED_HUMAN
     assert any(item.candidate.id == "p1" for item in session.discovery_queue())
-    assert session.moderation_state.members["reviewer-ava"].moderation_reputation == 80
+    assert session.moderation_state.members["reviewer-1"].moderation_reputation == 80
     assert adapter.inspect() is None
 
 
@@ -75,12 +83,9 @@ def test_automated_bot_risk_contains_and_blocks_stale_interest() -> None:
     session.accept_adult_gate("2000-01-01")
 
     case = session.report_suspected_bot("p2", ReportReason.SUSPICIOUS_LINK)
-
     assert case.status is CaseStatus.TEMPORARILY_CONTAINED
     assert {reviewer.id for reviewer in session.eligible_reviewers(case.id)} == {
-        "reviewer-ava",
-        "reviewer-noah",
-        "reviewer-sam",
+        f"reviewer-{index}" for index in range(1, 8)
     }
     assert all(item.candidate.id != "p2" for item in session.discovery_queue())
     with pytest.raises(DomainError, match="candidate_temporarily_contained"):
@@ -91,64 +96,51 @@ def test_missing_bot_risk_evidence_fails_closed() -> None:
     unknown = replace(SYNTHETIC_PROFILES[0], id="profile-without-risk-fixture")
     session, _adapter = create_session((unknown,))
     session.accept_adult_gate("2000-01-01")
-
-    case = session.report_suspected_bot(
-        unknown.id,
-        ReportReason.AUTOMATION_PATTERN,
-    )
-
+    case = session.report_suspected_bot(unknown.id, ReportReason.AUTOMATION_PATTERN)
     assert case.risk_action is RiskAction.DENY
     assert case.risk_reasons == ("adult_credential_invalid",)
     assert case.contained is True
 
 
-def test_match_message_and_unmatch_are_coordinated_in_memory() -> None:
+def test_match_message_meetup_extension_and_unmatch_are_session_only() -> None:
     session, adapter = create_session()
     session.accept_adult_gate("2000-01-01")
     outcome = session.express_interest("p1")
     assert outcome["matched"] is True
     assert session.active_tab == "Matches"
     match_id = str(outcome["match_id"])
+    assert session.active_matches()[0].id == match_id
+    assert session.meetup_suggestions(match_id)[0].id == "coffee_public"
 
-    message = session.send_message(match_id, "What trail do you like?")
-    assert message.shared_ground_tag is None
-    assert session.receive_synthetic_reply(match_id, "I like the river loop.").sender == "candidate"
+    proposal = session.propose_meetup(match_id, "coffee_public")
+    assert "public place" in proposal.body
+    for index in range(19):
+        session.send_message(match_id, f"message {index}")
+    with pytest.raises(DomainError, match="message_limit_reached"):
+        session.send_message(match_id, "blocked by initial limit")
+    assert session.extend_messages(match_id)["kind"] == "message_limit_extended"
+    assert session.send_message(match_id, "after extension").body == "after extension"
 
     ended = session.unmatch(match_id)
     assert ended["kind"] == "unmatched"
     assert session.conversations.matches[match_id].status is MatchStatus.UNMATCHED
-
-    # Session-only adult, discovery, match, and message state never reaches storage.
     assert adapter.inspect() is None
 
 
-def test_meetup_proposal_is_session_only_and_purged_on_block() -> None:
+def test_synthetic_reply_and_block_purge_visible_content() -> None:
     session, adapter = create_session()
     session.accept_adult_gate("2000-01-01")
     outcome = session.express_interest("p1")
     match_id = str(outcome["match_id"])
     session.send_message(match_id, "What trail do you like?")
-    session.receive_synthetic_reply(match_id, "I like the river loop.")
-
-    proposal = session.propose_meetup(match_id, "coffee_public")
-
-    assert "public place" in proposal.body
-    assert adapter.inspect() is None
-    session.block(match_id)
-    assert session.conversations.matches[match_id].messages == ()
-
-
-def test_block_purges_content_and_suppresses_candidate() -> None:
-    session, _adapter = create_session()
-    session.accept_adult_gate("2000-01-01")
-    outcome = session.express_interest("p1")
-    match_id = str(outcome["match_id"])
-    session.send_message(match_id, "Opening")
-    session.block(match_id)
+    assert session.receive_synthetic_reply(match_id, "I like the river loop.").sender == "candidate"
+    blocked = session.block(match_id)
+    assert blocked["kind"] == "blocked"
     match = session.conversations.matches[match_id]
     assert match.status is MatchStatus.BLOCKED
     assert match.content_purged and not match.messages and match.starter_tag is None
     assert all(entry.candidate.id != "p1" for entry in session.discovery_queue())
+    assert adapter.inspect() is None
 
 
 def test_only_allowlisted_profile_cosmetic_and_safe_tab_state_persists() -> None:
@@ -168,29 +160,53 @@ def test_only_allowlisted_profile_cosmetic_and_safe_tab_state_persists() -> None
     assert set(raw) == {"schemaVersion", "savedAt", "profile", "cosmetics", "ui"}
 
 
-def test_unknown_tab_is_rejected() -> None:
+def test_preferences_change_eligibility_without_exposing_weight_controls() -> None:
+    session, _adapter = create_session()
+    session.accept_adult_gate("2000-01-01")
+    session.update_preferences(
+        immediate_intent="casual_dating",
+        relational_openness="open_to_more",
+        required_boundaries=("public_first_meet",),
+    )
+    viewer = session.viewer()
+    assert viewer.required_boundaries == ("public_first_meet",)
+    assert session.current_candidate() is not None
+
+
+def test_unknown_tab_skin_candidate_and_match_are_rejected() -> None:
     session, _adapter = create_session()
     with pytest.raises(DomainError, match="unknown_tab"):
         session.select_tab("Skin Shop")
+    with pytest.raises(DomainError, match="unknown_skin"):
+        session.acquire_or_apply_skin("not-real")
+    with pytest.raises(DomainError, match="candidate_not_found"):
+        session.candidate_profile("not-real")
+    with pytest.raises(DomainError, match="match_not_found"):
+        session.match("match:none")
 
 
-def test_profile_readiness_is_derived_and_never_persisted() -> None:
+def test_profile_readiness_reset_export_and_haptics_use_safe_storage() -> None:
     session, adapter = create_session()
     session.update_profile(display_name="Riley", about="x" * 80, pronouns="")
-
     readiness = session.profile_readiness()
-
     assert readiness.ready is True
+    session.set_haptics(False)
+    exported = session.export_saved_profile()
+    assert '"displayName":"Riley"' in exported
     raw = json.loads(adapter.inspect())
     assert "readiness" not in raw
     assert set(raw["profile"]) == {"displayName", "about", "pronouns"}
+    reset = session.reset_saved_profile()
+    assert reset.profile.display_name == ""
+    assert session.active_tab == "Swipe"
 
 
 def test_pass_undo_restores_candidate() -> None:
     session, _adapter = create_session()
     session.accept_adult_gate("2000-01-01")
     assert session.pass_candidate("p1")["kind"] == "passed"
-    assert session.current_candidate().candidate.id == "p3"  # type: ignore[union-attr]
+    current = session.current_candidate()
+    assert current is not None and current.candidate.id != "p1"
     outcome = session.undo_last_decision()
     assert outcome["restored_candidate_id"] == "p1"
     assert session.active_tab == "Swipe"

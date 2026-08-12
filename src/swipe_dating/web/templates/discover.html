@@ -1,64 +1,75 @@
 {% extends "base.html" %}
-{% block title %}Swipe · Swipe R&D{% endblock %}
+{% block title %}Swipe{% endblock %}
+{% block body_class %}swipe-screen{% endblock %}
+{% block topbar %}
+  <div class="swipe-toolbar">
+    <a class="avatar-button" href="/profile" aria-label="Open profile">YOU</a>
+    <a class="wordmark compact" href="/discover" aria-label="Swipe"><span class="wordmark-mark">S</span></a>
+    <a class="icon-button" href="/filters" aria-label="Open filters">☰</a>
+  </div>
+{% endblock %}
 {% block content %}
-  <header class="section-heading">
-    <div>
-      <span class="eyebrow">SWIPE</span>
-      <h1>One profile. One decision.</h1>
-      <p class="muted">Pass, like, or report a suspected bot. No setup required.</p>
-    </div>
-  </header>
-
-  {% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
-  {% if notice %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
-
-  {% if candidate %}
-    <article class="profile-card">
-      <div
-        class="profile-visual"
-        role="img"
-        aria-label="Synthetic profile placeholder for {{ candidate.candidate.display_name }}"
-      >
-        <span>{{ candidate.candidate.display_name[0] }}</span>
-        <small>SYNTHETIC PROFILE</small>
-      </div>
-      <div class="profile-content">
-        <div class="profile-meta">
-          <span class="score-pill">{{ candidate.result.score }}% alignment</span>
-          <span>{{ candidate.candidate.age_band }}</span>
-        </div>
-        <h2>{{ candidate.candidate.display_name }}</h2>
-        <p class="profile-about">{{ candidate.candidate.about }}</p>
-        <div class="tag-row">
-          {% for tag in candidate.candidate.lifestyle_tags %}
-            <span>{{ tag.replace('_', ' ') }}</span>
-          {% endfor %}
+  <section class="swipe-stage" aria-label="Swipe profiles">
+    {% if candidate %}
+      {% set profile = candidate.candidate %}
+      <article class="dating-card">
+        <div class="photo-surface profile-visual photo-{{ profile.id }}" role="img" aria-label="Synthetic profile placeholder for {{ profile.display_name }}">
+          <div class="photo-label">SYNTHETIC PROFILE</div>
+          <div class="photo-monogram" aria-hidden="true">{{ profile.display_name[0] }}</div>
+          <div class="photo-gradient" aria-hidden="true"></div>
+          <div class="card-overlay">
+            <div class="card-badges">
+              <span class="alignment-badge">{{ candidate.result.score }}% aligned</span>
+              <span class="distance-badge">{{ "%.0f"|format(profile.distance_km) }} km away</span>
+            </div>
+            <h1>{{ profile.display_name }} <span>{{ profile.age_band }}</span></h1>
+            <p class="looking-for">{{ profile.immediate_intent.replace('_', ' ') }} · {{ profile.relational_openness.replace('_', ' ') }}</p>
+            <p class="card-bio">{{ profile.about }}</p>
+            <div class="trait-row" aria-label="Self-declared interests">
+              {% for tag in profile.lifestyle_tags[:3] %}<span>{{ tag.replace('_', ' ') }}</span>{% endfor %}
+            </div>
+          </div>
         </div>
 
-        <div class="card-divider"></div>
-        <form class="decision-form" action="/discover/interest" method="post">
-          <input type="hidden" name="candidate_id" value="{{ candidate.candidate.id }}">
-          <button class="button primary" type="submit">Like</button>
-        </form>
-
-        <div class="secondary-actions">
+        <div class="decision-deck">
+          <form action="/discover/undo" method="post"><button class="round-action undo" type="submit" aria-label="Undo last decision">↶</button></form>
           <form action="/discover/pass" method="post">
-            <input type="hidden" name="candidate_id" value="{{ candidate.candidate.id }}">
-            <button class="button quiet" type="submit">Pass</button>
+            <input type="hidden" name="candidate_id" value="{{ profile.id }}">
+            <button class="round-action pass" type="submit" aria-label="Pass {{ profile.display_name }}">×</button>
           </form>
-          <form action="/discover/report" method="post">
-            <input type="hidden" name="candidate_id" value="{{ candidate.candidate.id }}">
-            <input type="hidden" name="reason" value="automation_pattern">
-            <button class="button report" type="submit">Report suspected bot</button>
+          <form action="/discover/interest" method="post">
+            <input type="hidden" name="candidate_id" value="{{ profile.id }}">
+            <button class="round-action like" type="submit" aria-label="Like {{ profile.display_name }}">♥</button>
           </form>
+          <details class="report-menu">
+            <summary class="round-action more" aria-label="More actions">•••</summary>
+            <div class="sheet-popover">
+              <h2>Report {{ profile.display_name }}</h2>
+              <p>Private report. Community review identities are not shown publicly.</p>
+              <form action="/discover/report" method="post" class="stack-form">
+                <input type="hidden" name="candidate_id" value="{{ profile.id }}">
+                <label for="reason">Reason</label>
+                <select id="reason" name="reason">
+                  {% for value, label in report_options %}<option value="{{ value.value }}">{{ label }}</option>{% endfor %}
+                </select>
+                <label for="evidence_note">Optional note</label>
+                <textarea id="evidence_note" name="evidence_note" maxlength="280" placeholder="What looked suspicious?"></textarea>
+                <button class="danger-button" type="submit">Send private report</button>
+              </form>
+            </div>
+          </details>
         </div>
-      </div>
-    </article>
-  {% else %}
-    <section class="panel empty-state">
-      <span class="eyebrow">QUEUE COMPLETE</span>
-      <h2>No synthetic profiles remain.</h2>
-      <p class="muted">Start a fresh browser session to reset this local-only demo.</p>
-    </section>
-  {% endif %}
+      </article>
+
+      <p class="gesture-hint">Choose Pass or Like · no opener required</p>
+      {% if not feature_proximity %}<p class="feature-note">Nearby mode stays off until core Swipe + bot-control acceptance is complete.</p>{% endif %}
+    {% else %}
+      <section class="empty-state centered">
+        <div class="empty-icon">♡</div>
+        <h1>You're caught up.</h1>
+        <p>No eligible synthetic profiles remain in this session.</p>
+        <a class="secondary-button" href="/filters">Adjust filters</a>
+      </section>
+    {% endif %}
+  </section>
 {% endblock %}

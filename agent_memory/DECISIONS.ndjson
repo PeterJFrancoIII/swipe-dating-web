@@ -1,0 +1,3 @@
+{"id":"ADR-0001","at":"2026-08-12T17:29:00-04:00","decision":"PRODUCT_SCOPE.md remains the canonical product master; shared memory may coordinate work but may not redefine product scope.","owner":"architect"}
+{"id":"ADR-0002","at":"2026-08-12T17:29:00-04:00","decision":"Product owner is UI-only for implementation workflows. Agents own coding, terminal, Git, CI, and repository operations and ask the owner only for UI observations or product decisions.","owner":"product_owner+architect"}
+{"id":"ADR-0003","at":"2026-08-12T17:29:00-04:00","decision":"Cursor executes only ACTIVE_TASK.json, must cite GitHub-backed shared memory at task start and completion, cannot self-assign/self-approve/merge, and must stop on scope conflict.","owner":"architect"}

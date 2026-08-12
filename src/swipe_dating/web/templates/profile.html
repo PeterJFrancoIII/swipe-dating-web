@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Your profile · Swipe{% endblock %}
+{% block body_class %}sheet-screen{% endblock %}
+{% block topbar %}
+  <div class="sheet-topbar"><a class="back-button" href="/discover" aria-label="Close profile">‹</a><strong>Your profile</strong><span class="topbar-spacer"></span></div>
+{% endblock %}
+{% block content %}
+  <section class="settings-sheet">
+    <div class="profile-preview">
+      <span class="profile-preview-avatar">{{ (session.local_state.profile.display_name or 'Y')[0] }}</span>
+      <div><p class="eyebrow">PROFILE</p><h1>{{ session.local_state.profile.display_name or 'Your profile' }}</h1><p>{{ readiness.score }}% ready for this research flow</p></div>
+    </div>
+
+    <form action="/profile" method="post" class="settings-form">
+      <label for="display_name">Display name</label>
+      <input id="display_name" name="display_name" maxlength="64" value="{{ session.local_state.profile.display_name }}" placeholder="Your name">
+
+      <label for="pronouns">Pronouns <span>optional</span></label>
+      <input id="pronouns" name="pronouns" maxlength="64" value="{{ session.local_state.profile.pronouns }}" placeholder="e.g. they/them">
+
+      <label for="about">About you</label>
+      <textarea id="about" name="about" maxlength="500" rows="5" placeholder="A few specific things someone could ask you about…">{{ session.local_state.profile.about }}</textarea>
+
+      <button class="primary-button full" type="submit">Save profile</button>
+    </form>
+
+    <section class="settings-section">
+      <div><p class="eyebrow">VERIFICATION</p><h2>Adult + identity verification</h2><p>Required before any real-user build. This local prototype does not claim identity proof.</p></div>
+      <span class="status-chip">R&D only</span>
+    </section>
+
+    <section class="settings-section disabled-section">
+      <div><p class="eyebrow">SKIN SHOP</p><h2>Cosmetics</h2><p>Cosmetics never change matching reach or moderation power.</p></div>
+      <span class="status-chip">{{ 'Enabled' if feature_skin_shop else 'Locked' }}</span>
+    </section>
+
+    <a class="secondary-button full" href="/community">Community review lab</a>
+  </section>
+{% endblock %}
