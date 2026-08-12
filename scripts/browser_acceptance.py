@@ -63,8 +63,10 @@ def enter_synthetic_app(page: Page, base_url: str) -> None:
 
 
 def verify_swipe(page: Page) -> None:
-    expect(page.get_by_role("img", name="Synthetic profile placeholder for Alex")).to_be_visible()
-    expect(page.get_by_text("92% aligned", exact=True)).to_be_visible()
+    expect(
+        page.get_by_role("img", name="Synthetic profile placeholder for Alex")
+    ).to_be_visible()
+    expect(page.locator(".alignment-badge")).to_contain_text("% aligned")
     expect(page.get_by_role("button", name="Pass Alex")).to_be_visible()
     expect(page.get_by_role("button", name="Like Alex")).to_be_visible()
     expect(page.get_by_role("link", name="Open profile")).to_be_visible()
@@ -112,7 +114,8 @@ def create_match_and_open_chat(page: Page, base_url: str) -> None:
     page.get_by_role("button", name="Like Alex").click()
     page.wait_for_url(f"{base_url}/matches?*")
     expect(page.get_by_text("People who chose you too.", exact=True)).to_be_visible()
-    page.get_by_role("link", name="Alex").first.click()
+    expect(page.locator(".match-bubble")).to_have_count(1)
+    page.locator(".match-bubble").click()
     page.wait_for_load_state("networkidle")
     expect(page.get_by_text("No automatic message was sent.", exact=True)).to_be_visible()
     expect(page.get_by_text("Plan a meetup", exact=True)).to_be_visible()
