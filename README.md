@@ -1,21 +1,25 @@
-# Swipe Dating — Product-reset Python R&D
+# Swipe Dating — canonical web R&D
 
-A local, synthetic-only Python web app for the hard product reset: exact 18+ gating, a two-tab
-**Swipe + Matches** shell, nested community bot review, and reciprocal matching. Deepen Connection,
-progressive reveal, ranking-weight editors, and forced openers are deleted.
+A local, synthetic-only FastAPI/Jinja implementation of the canonical Swipe Dating product boundary in `PRODUCT_SCOPE.md`.
 
-The bot-control prototype includes:
+The current web experience includes:
 
-- reports from any adult-gated synthetic user;
-- voting restricted to verified, long-standing, good-standing synthetic reviewers;
-- three independent trust clusters and a two-thirds suspicious quorum;
-- content-blind automated behavior risk as a separate second layer;
-- temporary discovery containment, subject appeal, and synthetic adjudication;
-- moderation-reputation penalties for wrong votes, never dating-visibility penalties.
+- exact fail-closed 18+ entry;
+- exactly two permanent tabs: **Swipe** and **Matches**;
+- focused profile-card discovery with pass, like, private reporting, optional drag gestures, and keyboard controls;
+- nested profile and intent/boundary filters with fixed product-controlled ranking weights;
+- reciprocal matching only;
+- match chat with an initial 20-message limit, a one-time synthetic mutual-extension path, meetup planning, unmatch, block, and report;
+- private community bot review with a target panel of seven independent eligible reviewers and a 5-of-7 suspicious supermajority;
+- content-blind automated behavior risk as a separate supporting layer;
+- temporary discovery containment, subject appeal, synthetic adjudication, and moderation-reputation consequences for wrong votes;
+- block behavior that purges visible chat content and suppresses rediscovery.
 
-It does **not** provide real authentication, age assurance, users, Bluetooth scanning, location
-collection, network messaging, E2EE, billing, staffed moderation, permanent autonomous bans, or
-production deployment.
+The UI uses original branding, copy, styling, and synthetic visual placeholders. It follows common high-quality dating-product principles such as a dominant profile, low-friction decisions, compact match inbox, and progressive disclosure without copying another application's protected assets or distinctive trade dress.
+
+Nearby Mode, Match Map/location sharing, and Skin Shop commerce remain feature-gated until the prerequisite acceptance and safety work in `PRODUCT_SCOPE.md` is complete.
+
+It does **not** provide real authentication, identity or age proof, real users, Bluetooth scanning, location collection, network messaging, E2EE, billing, staffed moderation, permanent autonomous bans, or production deployment.
 
 ## Quick start
 
@@ -27,12 +31,9 @@ uv run playwright install chromium
 uv run swipe-web
 ```
 
-`swipe-web` starts on `http://127.0.0.1:8080` and opens the default Mac browser. The birth-date
-field starts blank; deliberately choose an adult date to enter. The active interface uses a
-warm, light, system-font design with keyboard navigation and responsive layouts; it loads no
-remote UI assets or JavaScript framework.
+`swipe-web` starts on `http://127.0.0.1:8080` and opens the default browser. The birth-date field starts blank; deliberately choose an adult date to enter. The interface loads no remote UI assets or JavaScript framework.
 
-The original JSON contract adapter and deterministic simulator remain available separately:
+The JSON contract adapter and deterministic simulator remain available separately:
 
 ```bash
 PORT=8081 uv run swipe-api
@@ -52,10 +53,9 @@ uv run swipe-governance
 SWIPE_WEB_URL=http://127.0.0.1:8081 uv run python scripts/browser_acceptance.py
 ```
 
-Run the browser command while `SWIPE_WEB_OPEN_BROWSER=0 PORT=8081 uv run swipe-web` is active in
-another terminal.
+Run the browser command while `SWIPE_WEB_OPEN_BROWSER=0 PORT=8081 uv run swipe-web` is active in another terminal.
 
-See [docs/BASELINE.md](docs/BASELINE.md), [docs/PARITY_MATRIX.md](docs/PARITY_MATRIX.md), and [docs/PRODUCTION_GAPS.md](docs/PRODUCTION_GAPS.md) for scope and limitations.
+See `docs/BASELINE.md`, `docs/PARITY_MATRIX.md`, `docs/PRODUCTION_GAPS.md`, and `docs/specs/current-objective.md` for scope and limitations.
 
 ## Release state
 
