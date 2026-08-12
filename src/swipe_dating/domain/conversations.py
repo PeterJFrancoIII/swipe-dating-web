@@ -365,9 +365,6 @@ def send_meetup_proposal(
     at_ms: int | float | None = None,
 ) -> ValueResult[ConversationState, Message]:
     match = _require_active_match(state, match_id)
-    senders = {message.sender for message in match.messages}
-    if not {"local", "candidate"}.issubset(senders):
-        raise DomainError("meetup_requires_two_way_conversation")
     suggestions = {suggestion.id: suggestion for suggestion in build_meetup_suggestions(match)}
     try:
         suggestion = suggestions[suggestion_id]
