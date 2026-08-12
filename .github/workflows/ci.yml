@@ -25,7 +25,7 @@ jobs:
       - run: uv run python -m compileall -q src tests
       - run: uv run pytest --cov=swipe_dating --cov-branch --cov-report=term-missing
       - run: uv run ruff check .
-      - run: uv run ruff format --check .
+      - run: uv run ruff format --diff .
       - run: uv run mypy src
       - run: uv run swipe-governance
       - run: uv run swipe-simulate
