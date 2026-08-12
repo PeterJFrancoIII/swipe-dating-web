@@ -200,9 +200,7 @@ def test_meetup_suggestions_are_grounded_public_and_location_free() -> None:
         "public_activity",
     ]
     assert all("public" in suggestion.prompt for suggestion in suggestions)
-    assert all(
-        "no location has been shared" in suggestion.prompt for suggestion in suggestions
-    )
+    assert all("no location has been shared" in suggestion.prompt for suggestion in suggestions)
 
 
 def test_meetup_proposal_is_available_immediately_after_match() -> None:

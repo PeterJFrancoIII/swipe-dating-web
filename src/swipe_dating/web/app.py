@@ -336,9 +336,7 @@ def _register_profile_routes(
                 "/filters",
                 error="Choose supported Looking For options.",
             )
-        safe_boundaries = tuple(
-            value for value in required_boundaries if value in BOUNDARY_OPTIONS
-        )
+        safe_boundaries = tuple(value for value in required_boundaries if value in BOUNDARY_OPTIONS)
         session.update_preferences(
             immediate_intent=immediate_intent,
             relational_openness=relational_openness,
@@ -389,11 +387,7 @@ def _register_community_routes(
         try:
             session.vote_on_bot_case(case_id, reviewer_id, VoteChoice(choice))
         except (DomainError, ValueError) as error:
-            message = (
-                _domain_message(error)
-                if isinstance(error, DomainError)
-                else "Unknown vote."
-            )
+            message = _domain_message(error) if isinstance(error, DomainError) else "Unknown vote."
             return _redirect("/community", error=message)
         return _redirect(
             "/community",
@@ -626,9 +620,7 @@ def _redirect(
     error: str | None = None,
 ) -> RedirectResponse:
     query = {
-        key: value
-        for key, value in {"notice": notice, "error": error}.items()
-        if value is not None
+        key: value for key, value in {"notice": notice, "error": error}.items() if value is not None
     }
     location = f"{path}?{urlencode(query)}" if query else path
     return RedirectResponse(location, status_code=303)
@@ -638,18 +630,14 @@ def _domain_message(error: DomainError) -> str:
     messages = {
         "adult_gate_required": "Complete the adults-only gate first.",
         "candidate_not_found": "That synthetic profile is unavailable.",
-        "candidate_temporarily_contained": (
-            "That profile is temporarily hidden pending review."
-        ),
+        "candidate_temporarily_contained": ("That profile is temporarily hidden pending review."),
         "candidate_already_decided": "You already made a decision on this profile.",
         "duplicate_bot_vote": "Each trusted reviewer gets one vote per case.",
         "reviewer_not_eligible": "This synthetic reviewer is not eligible to vote.",
         "reviewer_not_independent": "Review quorum requires independent trust clusters.",
         "case_voting_closed": "Community voting is closed for this case.",
         "case_not_contained": "Only a contained profile can appeal.",
-        "case_not_ready_for_adjudication": (
-            "Complete community review before adjudication."
-        ),
+        "case_not_ready_for_adjudication": ("Complete community review before adjudication."),
         "case_already_adjudicated": "This case already has a synthetic adjudication.",
         "report_limit_reached": "The synthetic report limit has been reached.",
         "active_bot_case_exists": "That profile already has an active private review.",
@@ -660,9 +648,7 @@ def _domain_message(error: DomainError) -> str:
         "message_limit_reached": (
             "This chat reached its message limit. Plan a meetup, extend once, or unmatch."
         ),
-        "message_extension_already_used": (
-            "The one-time message extension was already used."
-        ),
+        "message_extension_already_used": ("The one-time message extension was already used."),
         "message_extension_not_available": (
             "The extension becomes available when the current limit is reached."
         ),

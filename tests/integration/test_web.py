@@ -92,8 +92,7 @@ class RenderedHtml(HTMLParser):
         return [
             attributes
             for element_tag, attributes in self.elements
-            if tag in ("*", element_tag)
-            and class_name in (attributes.get("class") or "").split()
+            if tag in ("*", element_tag) and class_name in (attributes.get("class") or "").split()
         ]
 
 
@@ -104,9 +103,7 @@ def anyio_backend() -> str:
 
 @pytest.fixture
 async def web_client() -> AsyncIterator[httpx.AsyncClient]:
-    transport = httpx.ASGITransport(
-        app=create_web_app(clock=lambda: NOW, today="2026-07-22")
-    )
+    transport = httpx.ASGITransport(app=create_web_app(clock=lambda: NOW, today="2026-07-22"))
     async with httpx.AsyncClient(
         transport=transport,
         base_url="http://test",
@@ -194,9 +191,7 @@ async def test_primary_navigation_is_exactly_swipe_and_matches(
         assert set(links) == set(navigation_paths)
         assert links[current_path].get("aria-current") == "page"
         assert all(
-            "aria-current" not in link
-            for path, link in links.items()
-            if path != current_path
+            "aria-current" not in link for path, link in links.items() if path != current_path
         )
 
 
