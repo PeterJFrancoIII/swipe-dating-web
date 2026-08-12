@@ -10,19 +10,25 @@ from swipe_dating.domain.errors import DomainError
 from swipe_dating.domain.models import ValueResult, frozen_mapping, iso_from_ms
 from swipe_dating.domain.risk import RiskAction, RiskAssessment
 
-MIN_REVIEWER_ACCOUNT_AGE_DAYS = 180
+MIN_REVIEWER_ACCOUNT_AGE_DAYS = 90
 MIN_MODERATION_REPUTATION = 70
 MAX_REPORTS_PER_WINDOW = 5
-REVIEW_QUORUM = 3
-SUSPICIOUS_VOTES_REQUIRED = 2
+REVIEW_QUORUM = 7
+SUSPICIOUS_VOTES_REQUIRED = 5
 WRONG_VOTE_PENALTY = 20
+MAX_EVIDENCE_NOTE_LENGTH = 280
 
 
 class ReportReason(StrEnum):
     AUTOMATION_PATTERN = "automation_pattern"
     COPIED_PROFILE = "copied_profile"
     SUSPICIOUS_LINK = "suspicious_link"
+    SCAM = "scam"
+    IMPERSONATION = "impersonation"
+    STOLEN_PHOTOS = "stolen_photos"
+    SPAM_LINKS = "spam_links"
     OTHER_BOT_BEHAVIOR = "other_bot_behavior"
+    OTHER_ABUSE = "other_abuse"
 
 
 class VoteChoice(StrEnum):
@@ -58,6 +64,7 @@ class BotReport:
     subject_profile_id: str
     reason: ReportReason
     created_at: str
+    evidence_note: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +118,7 @@ def file_bot_report(
     reason: ReportReason,
     risk_assessment: RiskAssessment,
     at_ms: int | float,
+    evidence_note: str = "",
 ) -> ValueResult[ModerationState, ModerationCase]:
     reporter = _member(state, reporter_id)
     if not reporter.adult_eligible:
@@ -141,6 +149,7 @@ def file_bot_report(
         subject_profile_id=subject_profile_id,
         reason=reason,
         created_at=iso_from_ms(at_ms),
+        evidence_note=_normalize_evidence_note(evidence_note),
     )
     automatically_contained = risk_assessment.action in {
         RiskAction.TEMPORARY_CONTAINMENT,
@@ -354,3 +363,7 @@ def _reviewer_is_eligible(reviewer: CommunityMember) -> bool:
         and reviewer.moderation_reputation >= MIN_MODERATION_REPUTATION
         and bool(reviewer.trust_cluster_id)
     )
+
+
+def _normalize_evidence_note(value: str) -> str:
+    return value.strip()[:MAX_EVIDENCE_NOTE_LENGTH] if isinstance(value, str) else ""
