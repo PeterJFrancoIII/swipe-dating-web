@@ -100,6 +100,7 @@ def create_web_app(
     _register_profile_routes(application, sessions)
     _register_community_routes(application, sessions)
     _register_match_routes(application, sessions)
+    _register_match_control_routes(application, sessions)
     return application
 
 
@@ -251,10 +252,11 @@ def _register_discovery_routes(
                 evidence_note=evidence_note,
             )
         except (DomainError, ValueError) as error:
-            if isinstance(error, DomainError):
-                message = _domain_message(error)
-            else:
-                message = "Unknown report reason."
+            message = (
+                _domain_message(error)
+                if isinstance(error, DomainError)
+                else "Unknown report reason."
+            )
             return _redirect("/discover", error=message)
         return _redirect(
             "/community",
@@ -387,10 +389,11 @@ def _register_community_routes(
         try:
             session.vote_on_bot_case(case_id, reviewer_id, VoteChoice(choice))
         except (DomainError, ValueError) as error:
-            if isinstance(error, DomainError):
-                message = _domain_message(error)
-            else:
-                message = "Unknown vote."
+            message = (
+                _domain_message(error)
+                if isinstance(error, DomainError)
+                else "Unknown vote."
+            )
             return _redirect("/community", error=message)
         return _redirect(
             "/community",
@@ -516,6 +519,11 @@ def _register_match_routes(
             notice="Synthetic mutual extension applied once.",
         )
 
+
+def _register_match_control_routes(
+    application: FastAPI,
+    sessions: BrowserSessionStore,
+) -> None:
     @application.post("/matches/{match_id:path}/unmatch")
     async def unmatch(request: Request, match_id: str) -> Response:
         session = _adult_session(request, sessions)
@@ -562,10 +570,11 @@ def _register_match_routes(
                 evidence_note=evidence_note,
             )
         except (DomainError, ValueError) as error:
-            if isinstance(error, DomainError):
-                message_text = _domain_message(error)
-            else:
-                message_text = "Unknown report reason."
+            message_text = (
+                _domain_message(error)
+                if isinstance(error, DomainError)
+                else "Unknown report reason."
+            )
             return _redirect(_chat_path(match_id), error=message_text)
         return _redirect(
             "/community",
