@@ -1,78 +1,46 @@
 {% extends "base.html" %}
-{% block title %}Community review · Swipe R&D{% endblock %}
+{% block title %}Community review · Swipe{% endblock %}
+{% block body_class %}sheet-screen{% endblock %}
+{% block topbar %}
+  <div class="sheet-topbar"><a class="back-button" href="/profile" aria-label="Back to profile">‹</a><strong>Community review</strong><span class="topbar-spacer"></span></div>
+{% endblock %}
 {% block content %}
   <header class="section-heading">
     <div>
-      <span class="eyebrow">BOT CONTROL</span>
+      <p class="eyebrow">PRIVATE BOT CONTROL</p>
       <h1>Trusted community review.</h1>
-      <p class="muted">
-        Long-standing verified synthetic members vote once. Automated behavior risk remains a
-        separate second layer.
-      </p>
+      <p class="muted">Seven independent, eligible synthetic reviewers form the target panel. Five suspicious votes are required for community containment.</p>
     </div>
-    <div class="focus-stat">
-      <strong>3 independent voters</strong>
-      <span>2 suspicious votes trigger temporary containment</span>
-    </div>
+    <div class="focus-stat"><strong>5 of 7 supermajority</strong><span>Automation is a separate supporting risk layer.</span></div>
   </header>
-
-  {% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
-  {% if notice %}<div class="alert success" role="status">{{ notice }}</div>{% endif %}
 
   {% if case_rows %}
     <div class="case-list">
       {% for row in case_rows %}
         {% set case = row.case %}
         {% set profile = row.profile %}
-        <article class="panel case-card">
+        <article class="case-card">
           <header class="case-header">
             <div class="case-identity">
               <span class="mini-avatar" aria-hidden="true">{{ profile.display_name[0] }}</span>
-              <div>
-                <span class="micro-heading">{{ case.id }}</span>
-                <h2>{{ profile.display_name }}</h2>
-                <p>{{ profile.age_band }} · {{ case.report.reason.value.replace('_', ' ') }}</p>
-              </div>
+              <div><span class="micro-heading">{{ case.id }}</span><h2>{{ profile.display_name }}</h2><p>{{ profile.age_band }} · {{ case.report.reason.value.replace('_', ' ') }}</p></div>
             </div>
             <div class="case-status">
-              {% if case.status.value == "temporarily_contained" %}
-                <span class="status-pill contained">Temporarily buried</span>
-              {% elif case.status.value == "appealed_pending_review" %}
-                <span class="status-pill appealed">Appeal pending review</span>
-              {% elif case.status.value == "adjudicated_bot" %}
-                <span class="status-pill contained">Synthetic bot confirmed</span>
-              {% elif case.status.value == "adjudicated_human" %}
-                <span class="status-pill cleared">Synthetic human restored</span>
-              {% elif case.status.value == "community_review_complete" %}
-                <span class="status-pill review">Community review complete</span>
-              {% else %}
-                <span class="status-pill review">Open for trusted review</span>
-              {% endif %}
+              {% if case.status.value == "temporarily_contained" %}<span class="status-pill contained">Temporarily buried</span>
+              {% elif case.status.value == "appealed_pending_review" %}<span class="status-pill appealed">Appeal pending</span>
+              {% elif case.status.value == "adjudicated_bot" %}<span class="status-pill contained">Synthetic bot confirmed</span>
+              {% elif case.status.value == "adjudicated_human" %}<span class="status-pill cleared">Synthetic human restored</span>
+              {% elif case.status.value == "community_review_complete" %}<span class="status-pill review">Review complete</span>
+              {% else %}<span class="status-pill review">Open for review</span>{% endif %}
             </div>
           </header>
 
           <p class="case-summary">{{ profile.about }}</p>
+          {% if case.report.evidence_note %}<p class="case-summary"><strong>Reporter note:</strong> {{ case.report.evidence_note }}</p>{% endif %}
 
           <div class="signal-grid">
-            <div>
-              <span>Community layer</span>
-              <strong>{{ case.votes|length }} / 3 trusted votes</strong>
-              <small>
-                {{ case.votes|selectattr("choice.value", "equalto", "suspicious")|list|length }}
-                suspicious
-              </small>
-            </div>
-            <div>
-              <span>Automated layer</span>
-              <strong>{{ case.risk_score }} / 100 risk</strong>
-              <small>
-                {% if case.risk_reasons %}
-                  {{ case.risk_reasons|join(", ")|replace("_", " ") }}
-                {% else %}
-                  no elevated behavior signals
-                {% endif %}
-              </small>
-            </div>
+            <div><span>Community layer</span><strong>{{ case.votes|length }} / 7 trusted votes</strong><small>{{ case.votes|selectattr("choice.value", "equalto", "suspicious")|list|length }} suspicious</small></div>
+            <div><span>Automated layer</span><strong>{{ case.risk_score }} / 100 risk</strong><small>{% if case.risk_reasons %}{{ case.risk_reasons|join(", ")|replace("_", " ") }}{% else %}no elevated behavior signals{% endif %}</small></div>
           </div>
 
           {% if row.reviewers %}
@@ -81,20 +49,10 @@
               {% for reviewer in row.reviewers %}
                 <form class="reviewer-row" action="/community/{{ case.id }}/vote" method="post">
                   <input type="hidden" name="reviewer_id" value="{{ reviewer.id }}">
-                  <div>
-                    <strong>{{ reviewer.id }}</strong>
-                    <small>
-                      {{ reviewer.account_age_days }} days · reputation
-                      {{ reviewer.moderation_reputation }}
-                    </small>
-                  </div>
+                  <div><strong>{{ reviewer.id }}</strong><small>{{ reviewer.account_age_days }} days · reputation {{ reviewer.moderation_reputation }}</small></div>
                   <div class="vote-actions">
-                    <button class="button report small" name="choice" value="suspicious" type="submit">
-                      Bot-like
-                    </button>
-                    <button class="button quiet small" name="choice" value="likely_human" type="submit">
-                      Likely human
-                    </button>
+                    <button class="button report small" name="choice" value="suspicious" type="submit">Bot-like</button>
+                    <button class="button quiet small" name="choice" value="likely_human" type="submit">Likely human</button>
                   </div>
                 </form>
               {% endfor %}
@@ -106,35 +64,16 @@
           {% set can_adjudicate = (case.review_complete or case.contained) and case.status.value not in final_statuses %}
           {% if can_appeal or can_adjudicate %}
             <div class="case-actions">
-              {% if can_appeal %}
-                <form action="/community/{{ case.id }}/appeal" method="post">
-                  <button class="button quiet" type="submit">Simulate subject appeal</button>
-                </form>
-              {% endif %}
-              {% if can_adjudicate %}
-                <form action="/community/{{ case.id }}/adjudicate" method="post">
-                  <button class="button primary" type="submit">Run synthetic adjudication</button>
-                </form>
-              {% endif %}
+              {% if can_appeal %}<form action="/community/{{ case.id }}/appeal" method="post"><button class="button quiet" type="submit">Simulate subject appeal</button></form>{% endif %}
+              {% if can_adjudicate %}<form action="/community/{{ case.id }}/adjudicate" method="post"><button class="button primary" type="submit">Run synthetic adjudication</button></form>{% endif %}
             </div>
           {% endif %}
         </article>
       {% endfor %}
     </div>
   {% else %}
-    <section class="panel empty-state">
-      <span class="eyebrow">NO OPEN CASES</span>
-      <h2>Report a suspected bot from Swipe.</h2>
-      <p class="muted">Community review starts only after a user-filed synthetic report.</p>
-      <a class="button primary inline-button" href="/discover">Return to Swipe</a>
-    </section>
+    <section class="empty-state centered"><div class="empty-icon">✓</div><h1>No open cases.</h1><p>A private community review begins after a user files a report from Swipe or a match.</p><a class="primary-button" href="/discover">Return to Swipe</a></section>
   {% endif %}
 
-  <aside class="policy-note">
-    <strong>Wrong-vote deterrence</strong>
-    <p>
-      A vote that disagrees with the synthetic adjudication lowers moderation reputation and may
-      remove voting privileges. Dating visibility is never used as punishment.
-    </p>
-  </aside>
+  <aside class="policy-note"><strong>Wrong-vote deterrence</strong><p>Demonstrated wrong-vote patterns reduce moderation reputation and can remove review privileges. Purchases, attractiveness, and dating popularity never grant moderation power.</p></aside>
 {% endblock %}
