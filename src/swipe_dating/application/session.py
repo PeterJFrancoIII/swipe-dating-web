@@ -155,9 +155,7 @@ class ResearchSession:
 
     def active_matches(self) -> tuple[ConversationMatch, ...]:
         return tuple(
-            match
-            for match in self.conversations.matches.values()
-            if match.status.value == "active"
+            match for match in self.conversations.matches.values() if match.status.value == "active"
         )
 
     def match(self, match_id: str) -> ConversationMatch:
