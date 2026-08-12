@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}{{ match.candidate.display_name }} · Matches{% endblock %}
+{% block body_class %}chat-screen{% endblock %}
+{% block topbar %}
+  <div class="chat-topbar">
+    <a class="back-button" href="/matches" aria-label="Back to Matches">‹</a>
+    <div class="chat-person">
+      <span class="tiny-avatar avatar-{{ profile.id }}" aria-hidden="true">{{ match.candidate.display_name[0] }}</span>
+      <span><strong>{{ match.candidate.display_name }}</strong><small>{{ match.candidate.age_band }} · {{ "%.0f"|format(profile.distance_km) }} km away</small></span>
+    </div>
+    <details class="chat-menu">
+      <summary class="icon-button" aria-label="Conversation options">•••</summary>
+      <div class="sheet-popover right-sheet">
+        <h2>Conversation options</h2>
+        <form action="/matches/{{ match.id }}/unmatch" method="post"><button class="menu-action" type="submit">Unmatch</button></form>
+        <form action="/matches/{{ match.id }}/block" method="post"><button class="menu-action danger-text" type="submit">Block & purge chat</button></form>
+        <details class="nested-report">
+          <summary class="menu-action danger-text">Report</summary>
+          <form action="/matches/{{ match.id }}/report" method="post" class="stack-form compact-form">
+            <label for="chat-report-reason">Reason</label>
+            <select id="chat-report-reason" name="reason">
+              {% for value, label in report_options %}<option value="{{ value.value }}">{{ label }}</option>{% endfor %}
+            </select>
+            <label for="chat-evidence">Optional note</label>
+            <textarea id="chat-evidence" name="evidence_note" maxlength="280"></textarea>
+            <button class="danger-button" type="submit">Send private report</button>
+          </form>
+        </details>
+      </div>
+    </details>
+  </div>
+{% endblock %}
+{% block content %}
+  <section class="chat-page">
+    <div class="match-context">
+      <span class="alignment-badge">{{ "%.0f"|format(profile.alignment_score) }}% profile alignment</span>
+      <p>You matched. There is no required opener—start wherever feels natural.</p>
+    </div>
+
+    <div class="message-thread" data-message-thread>
+      {% if match.messages %}
+        {% for message in match.messages %}
+          <div class="message {{ 'mine' if message.sender == 'local' else 'theirs' }}">
+            <p>{{ message.body }}</p>
+            <small>{{ 'You' if message.sender == 'local' else match.candidate.display_name }}</small>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="chat-empty">
+          <div class="empty-icon">♡</div>
+          <strong>You matched with {{ match.candidate.display_name }}</strong>
+          <span>No automatic message was sent.</span>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="meetup-bar">
+      <details>
+        <summary class="meetup-button">Plan a meetup</summary>
+        <div class="meetup-sheet">
+          <div>
+            <p class="eyebrow">MEET OFFLINE</p>
+            <h2>Keep the first plan simple.</h2>
+            <p>No location is shared by choosing an idea.</p>
+          </div>
+          {% for suggestion in meetup_suggestions %}
+            <form action="/matches/{{ match.id }}/meetup" method="post">
+              <input type="hidden" name="suggestion_id" value="{{ suggestion.id }}">
+              <button class="meetup-option" type="submit"><strong>{{ suggestion.title }}</strong><span>Send as a proposal</span></button>
+            </form>
+          {% endfor %}
+          {% if not feature_match_map %}<p class="feature-note">Match Map remains off until its consent and location acceptance gates are enabled.</p>{% endif %}
+        </div>
+      </details>
+      <span class="message-counter">{{ match.messages|length }} / {{ match.message_limit }}</span>
+    </div>
+
+    {% if match.messages|length >= match.message_limit %}
+      <div class="limit-card">
+        <strong>You reached the {{ match.message_limit }}-message limit.</strong>
+        <p>Plan a meetup, use the one-time mutual extension, or end the match.</p>
+        {% if not match.extension_used %}
+          <form action="/matches/{{ match.id }}/extend" method="post"><button class="secondary-button" type="submit">Simulate mutual extension</button></form>
+        {% endif %}
+      </div>
+    {% else %}
+      <form class="composer" action="/matches/{{ match.id }}/message" method="post">
+        <label class="sr-only" for="message-text">Message {{ match.candidate.display_name }}</label>
+        <textarea id="message-text" name="text" maxlength="500" rows="1" placeholder="Message {{ match.candidate.display_name }}" required data-auto-grow></textarea>
+        <button class="send-button" type="submit" aria-label="Send message">↑</button>
+      </form>
+    {% endif %}
+  </section>
+{% endblock %}
