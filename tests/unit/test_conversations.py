@@ -90,9 +90,19 @@ def test_interest_does_not_require_shared_ground_and_respects_availability() -> 
 def test_first_message_does_not_require_shared_ground() -> None:
     created = matched()
     match_id = str(created.outcome["match_id"])
-    sent = send_message(created.state, match_id=match_id, text="What trail do you like?", at_ms=AT)
+    sent = send_message(
+        created.state,
+        match_id=match_id,
+        text="What trail do you like?",
+        at_ms=AT,
+    )
     assert sent.value.shared_ground_tag is None
-    second = send_message(sent.state, match_id=match_id, text="Another message", at_ms=AT + 1)
+    second = send_message(
+        sent.state,
+        match_id=match_id,
+        text="Another message",
+        at_ms=AT + 1,
+    )
     assert second.value.shared_ground_tag is None
 
 
@@ -101,11 +111,19 @@ def test_message_validation_and_synthetic_reply() -> None:
     match_id = str(created.outcome["match_id"])
     with pytest.raises(DomainError, match="message_required"):
         send_message(created.state, match_id=match_id, text=" ", at_ms=AT)
-    sent = send_message(created.state, match_id=match_id, text="x" * 500, at_ms=AT)
+    sent = send_message(
+        created.state,
+        match_id=match_id,
+        text="x" * 500,
+        at_ms=AT,
+    )
     with pytest.raises(DomainError, match="message_too_long"):
         send_message(created.state, match_id=match_id, text="x" * 501, at_ms=AT)
     replied = receive_synthetic_reply(
-        sent.state, match_id=match_id, text="I like the river loop.", at_ms=AT + 1
+        sent.state,
+        match_id=match_id,
+        text="I like the river loop.",
+        at_ms=AT + 1,
     )
     assert replied.value.sender == "candidate"
     assert len(replied.state.matches[match_id].messages) == 2
@@ -116,10 +134,20 @@ def test_twenty_message_limit_allows_one_extension() -> None:
     match_id = str(created.outcome["match_id"])
     state = created.state
     for index in range(INITIAL_MESSAGE_LIMIT):
-        state = send_message(state, match_id=match_id, text=f"message {index}", at_ms=AT + index).state
+        state = send_message(
+            state,
+            match_id=match_id,
+            text=f"message {index}",
+            at_ms=AT + index,
+        ).state
 
     with pytest.raises(DomainError, match="message_limit_reached"):
-        send_message(state, match_id=match_id, text="one too many", at_ms=AT + 30)
+        send_message(
+            state,
+            match_id=match_id,
+            text="one too many",
+            at_ms=AT + 30,
+        )
 
     extended = extend_conversation(state, match_id=match_id)
     assert extended.state.matches[match_id].message_limit == 40
@@ -156,7 +184,8 @@ def test_unmatch_retains_transcript_while_block_purges_and_suppresses() -> None:
 
 def test_starter_suggestions_are_optional_and_person_specific() -> None:
     created = matched()
-    suggestions = build_starter_suggestions(created.state.matches[str(created.outcome["match_id"])])
+    match = created.state.matches[str(created.outcome["match_id"])]
+    suggestions = build_starter_suggestions(match)
     assert len(suggestions) == 3
     assert all("Alex" in suggestion for suggestion in suggestions)
 
@@ -171,7 +200,9 @@ def test_meetup_suggestions_are_grounded_public_and_location_free() -> None:
         "public_activity",
     ]
     assert all("public" in suggestion.prompt for suggestion in suggestions)
-    assert all("no location has been shared" in suggestion.prompt for suggestion in suggestions)
+    assert all(
+        "no location has been shared" in suggestion.prompt for suggestion in suggestions
+    )
 
 
 def test_meetup_proposal_is_available_immediately_after_match() -> None:
