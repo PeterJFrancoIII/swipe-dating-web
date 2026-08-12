@@ -55,7 +55,10 @@ SYNTHETIC_PROFILES: Final = (
         id="p1",
         display_name="Alex",
         age_band="24",
-        about="Coffee walks, tiny venues, climbing gyms, and making plans that actually happen.",
+        about=(
+            "Coffee walks, tiny venues, climbing gyms, and making plans "
+            "that actually happen."
+        ),
         immediate_intent="casual_dating",
         relational_openness="open_to_more",
         accepted_immediate_intents=(
@@ -85,18 +88,35 @@ SYNTHETIC_PROFILES: Final = (
         id="p2",
         display_name="Jordan",
         age_band="25",
-        about="Trade work, pickup basketball, late-night food, and building things with my hands.",
+        about=(
+            "Trade work, pickup basketball, late-night food, and building "
+            "things with my hands."
+        ),
         immediate_intent="friends_with_benefits",
         relational_openness="relationship_possible",
-        accepted_immediate_intents=("friends_with_benefits", "casual_dating", "open_dating"),
+        accepted_immediate_intents=(
+            "friends_with_benefits",
+            "casual_dating",
+            "open_dating",
+        ),
         accepted_relational_openness=(
             "open_to_more",
             "relationship_possible",
             "seeking_relationship",
         ),
-        boundaries=("condoms_required", "public_first_meet", "sober_meetup", "no_drugs"),
+        boundaries=(
+            "condoms_required",
+            "public_first_meet",
+            "sober_meetup",
+            "no_drugs",
+        ),
         required_boundaries=("condoms_required",),
-        lifestyle_tags=("basketball", "live_music", "fitness", "building_things"),
+        lifestyle_tags=(
+            "basketball",
+            "live_music",
+            "fitness",
+            "building_things",
+        ),
         alignment_score=81,
         distance_km=11,
         synthetic_reciprocal_like=False,
@@ -105,10 +125,17 @@ SYNTHETIC_PROFILES: Final = (
         id="p3",
         display_name="Morgan",
         age_band="23",
-        about="Museum afternoons, cooking experiments, co-op games, and very good playlists.",
+        about=(
+            "Museum afternoons, cooking experiments, co-op games, and very "
+            "good playlists."
+        ),
         immediate_intent="open_dating",
         relational_openness="open_to_more",
-        accepted_immediate_intents=("casual_dating", "open_dating", "relationship_focused"),
+        accepted_immediate_intents=(
+            "casual_dating",
+            "open_dating",
+            "relationship_focused",
+        ),
         accepted_relational_openness=(
             "open_to_more",
             "relationship_possible",
@@ -131,10 +158,17 @@ SYNTHETIC_PROFILES: Final = (
         id="p4",
         display_name="Riley",
         age_band="22",
-        about="Sunday markets, film cameras, running by the river, and finding the best dumplings.",
+        about=(
+            "Sunday markets, film cameras, running by the river, and finding "
+            "the best dumplings."
+        ),
         immediate_intent="casual_dating",
         relational_openness="relationship_possible",
-        accepted_immediate_intents=("casual_dating", "open_dating", "relationship_focused"),
+        accepted_immediate_intents=(
+            "casual_dating",
+            "open_dating",
+            "relationship_focused",
+        ),
         accepted_relational_openness=("open_to_more", "relationship_possible"),
         boundaries=("condoms_required", "public_first_meet", "no_drugs"),
         required_boundaries=("public_first_meet",),
@@ -147,12 +181,28 @@ SYNTHETIC_PROFILES: Final = (
         id="p5",
         display_name="Casey",
         age_band="24",
-        about="Bookstores, indie games, ceramics, and a soft spot for aggressively specific trivia.",
+        about=(
+            "Bookstores, indie games, ceramics, and a soft spot for "
+            "aggressively specific trivia."
+        ),
         immediate_intent="relationship_focused",
         relational_openness="seeking_relationship",
-        accepted_immediate_intents=("casual_dating", "relationship_focused", "figuring_it_out"),
-        accepted_relational_openness=("open_to_more", "relationship_possible", "seeking_relationship"),
-        boundaries=("condoms_required", "public_first_meet", "no_drugs", "no_smoking"),
+        accepted_immediate_intents=(
+            "casual_dating",
+            "relationship_focused",
+            "figuring_it_out",
+        ),
+        accepted_relational_openness=(
+            "open_to_more",
+            "relationship_possible",
+            "seeking_relationship",
+        ),
+        boundaries=(
+            "condoms_required",
+            "public_first_meet",
+            "no_drugs",
+            "no_smoking",
+        ),
         required_boundaries=("public_first_meet", "no_drugs"),
         lifestyle_tags=("books", "gaming", "ceramics", "trivia"),
         alignment_score=88,
@@ -170,18 +220,25 @@ SYNTHETIC_COMMUNITY_MEMBERS: Final = (
         good_standing=True,
         trust_cluster_id="local-browser",
     ),
-    *(CommunityMember(
-        id=f"reviewer-{index}",
-        adult_eligible=True,
-        verified=True,
-        account_age_days=180 + index * 70,
-        good_standing=True,
-        trust_cluster_id=f"trusted-device-{index}",
-    ) for index in range(1, 8)),
+    *(
+        CommunityMember(
+            id=f"reviewer-{index}",
+            adult_eligible=True,
+            verified=True,
+            account_age_days=180 + index * 70,
+            good_standing=True,
+            trust_cluster_id=f"trusted-device-{index}",
+        )
+        for index in range(1, 8)
+    ),
 )
 
 SYNTHETIC_BOT_SIGNALS: Final[Mapping[str, Mapping[str, object]]] = {
-    "p1": {"adultCredentialValid": True, "attestation": "hardware_backed", "likesMinute": 2},
+    "p1": {
+        "adultCredentialValid": True,
+        "attestation": "hardware_backed",
+        "likesMinute": 2,
+    },
     "p2": {
         "adultCredentialValid": True,
         "attestation": "software_fallback",
@@ -190,9 +247,21 @@ SYNTHETIC_BOT_SIGNALS: Final[Mapping[str, Mapping[str, object]]] = {
         "likesMinute": 90,
         "maliciousLinkHits24h": 1,
     },
-    "p3": {"adultCredentialValid": True, "attestation": "hardware_backed", "likesMinute": 3},
-    "p4": {"adultCredentialValid": True, "attestation": "hardware_backed", "likesMinute": 1},
-    "p5": {"adultCredentialValid": True, "attestation": "hardware_backed", "likesMinute": 2},
+    "p3": {
+        "adultCredentialValid": True,
+        "attestation": "hardware_backed",
+        "likesMinute": 3,
+    },
+    "p4": {
+        "adultCredentialValid": True,
+        "attestation": "hardware_backed",
+        "likesMinute": 1,
+    },
+    "p5": {
+        "adultCredentialValid": True,
+        "attestation": "hardware_backed",
+        "likesMinute": 2,
+    },
 }
 
 SYNTHETIC_BOT_TRUTH: Final[Mapping[str, bool]] = {
