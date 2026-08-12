@@ -24,9 +24,11 @@ from swipe_dating.domain.bot_moderation import (
     get_moderation_case,
 )
 from swipe_dating.domain.conversations import (
+    ConversationMatch,
     ConversationState,
     Message,
     block_conversation,
+    build_meetup_suggestions,
     create_conversation_state,
     get_suppressed_candidate_ids,
     receive_synthetic_reply,
@@ -149,6 +151,22 @@ class ResearchSession:
     def candidate_profile(self, candidate_id: str) -> DiscoveryProfile:
         return self._candidate(candidate_id)
 
+    def active_matches(self) -> tuple[ConversationMatch, ...]:
+        return tuple(
+            match
+            for match in self.conversations.matches.values()
+            if match.status.value == "active"
+        )
+
+    def match(self, match_id: str) -> ConversationMatch:
+        try:
+            return self.conversations.matches[match_id]
+        except KeyError as error:
+            raise DomainError("match_not_found") from error
+
+    def meetup_suggestions(self, match_id: str) -> tuple[object, ...]:
+        return build_meetup_suggestions(self.match(match_id))
+
     def pass_candidate(self, candidate_id: str) -> Mapping[str, object]:
         self._require_adult()
         self._require_candidate_not_contained(candidate_id)
@@ -175,6 +193,7 @@ class ResearchSession:
         self,
         candidate_id: str,
         reason: ReportReason,
+        evidence_note: str = "",
     ) -> ModerationCase:
         self._require_adult()
         self._candidate(candidate_id)
@@ -192,6 +211,7 @@ class ResearchSession:
             reason=reason,
             risk_assessment=assess_risk(signals),
             at_ms=self.clock(),
+            evidence_note=evidence_note,
         )
         self.moderation_state = result.state
         return result.value
@@ -312,6 +332,19 @@ class ResearchSession:
             profile=LocalProfile(display_name, about, pronouns),
         )
         return self._persist()
+
+    def update_preferences(
+        self,
+        *,
+        immediate_intent: str,
+        relational_openness: str,
+        required_boundaries: tuple[str, ...],
+    ) -> None:
+        if immediate_intent:
+            self.immediate_intent = immediate_intent
+        if relational_openness:
+            self.relational_openness = relational_openness
+        self.required_boundaries = set(required_boundaries)
 
     def profile_readiness(self) -> ProfileReadiness:
         profile = self.local_state.profile
