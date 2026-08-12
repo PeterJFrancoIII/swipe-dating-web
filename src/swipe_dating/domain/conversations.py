@@ -264,7 +264,11 @@ def receive_synthetic_reply(
     return ValueResult(next_state, message)
 
 
-def extend_conversation(state: ConversationState, *, match_id: str) -> TransitionResult[ConversationState]:
+def extend_conversation(
+    state: ConversationState,
+    *,
+    match_id: str,
+) -> TransitionResult[ConversationState]:
     match = _require_active_match(state, match_id)
     if match.extension_used:
         raise DomainError("message_extension_already_used")
