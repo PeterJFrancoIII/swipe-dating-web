@@ -14,7 +14,7 @@
     {% if matches %}
       <div class="new-match-strip" aria-label="Current matches">
         {% for match in matches %}
-          <a href="/matches/{{ match.id|urlencode }}" class="match-bubble">
+          <a href="/matches/{{ match.id }}" class="match-bubble">
             <span class="match-avatar avatar-{{ match.candidate.id }}">{{ match.candidate.display_name[0] }}</span>
             <span>{{ match.candidate.display_name }}</span>
           </a>
@@ -24,7 +24,7 @@
       <div class="conversation-list">
         <h2>Conversations</h2>
         {% for match in matches %}
-          <a class="conversation-row" href="/matches/{{ match.id|urlencode }}">
+          <a class="conversation-row" href="/matches/{{ match.id }}">
             <span class="conversation-avatar avatar-{{ match.candidate.id }}" aria-hidden="true">{{ match.candidate.display_name[0] }}</span>
             <span class="conversation-copy">
               <strong>{{ match.candidate.display_name }} <small>{{ match.candidate.age_band }}</small></strong>
