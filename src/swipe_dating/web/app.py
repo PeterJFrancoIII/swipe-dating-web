@@ -17,8 +17,8 @@ from fastapi.templating import Jinja2Templates
 from swipe_dating.adapters.storage import LocalStateRepository, MemoryStorageAdapter
 from swipe_dating.application.session import ResearchSession
 from swipe_dating.domain.bot_moderation import ReportReason, VoteChoice
-from swipe_dating.domain.errors import DomainError
 from swipe_dating.domain.discovery import IMMEDIATE_INTENTS, RELATIONAL_OPENNESS
+from swipe_dating.domain.errors import DomainError
 
 SESSION_COOKIE = "swipe_rnd_session"
 WEB_ROOT = Path(__file__).resolve().parent
@@ -155,7 +155,10 @@ def _register_gate_routes(application: FastAPI, sessions: BrowserSessionStore) -
         return response
 
 
-def _register_discovery_routes(application: FastAPI, sessions: BrowserSessionStore) -> None:
+def _register_discovery_routes(
+    application: FastAPI,
+    sessions: BrowserSessionStore,
+) -> None:
     @application.get("/discover", response_class=HTMLResponse)
     async def discover(request: Request) -> Response:
         session = _adult_session(request, sessions)
@@ -184,7 +187,10 @@ def _register_discovery_routes(application: FastAPI, sessions: BrowserSessionSto
             session.pass_candidate(candidate_id)
         except DomainError as error:
             return _redirect("/discover", error=_domain_message(error))
-        return _redirect("/discover", notice="Passed. Your choice stays in this session only.")
+        return _redirect(
+            "/discover",
+            notice="Passed. Your choice stays in this session only.",
+        )
 
     @application.post("/discover/interest")
     async def express_interest(
@@ -200,11 +206,15 @@ def _register_discovery_routes(application: FastAPI, sessions: BrowserSessionSto
             return _redirect("/discover", error=_domain_message(error))
         if outcome.get("matched") is True:
             match_id = str(outcome.get("match_id", ""))
+            display_name = session.match(match_id).candidate.display_name
             return _redirect(
                 "/matches",
-                notice=f"It's a match. Open {session.match(match_id).candidate.display_name} to chat.",
+                notice=f"It's a match. Open {display_name} to chat.",
             )
-        return _redirect("/discover", notice="Like sent. A match only appears after mutual interest.")
+        return _redirect(
+            "/discover",
+            notice="Like sent. A match only appears after mutual interest.",
+        )
 
     @application.post("/discover/undo")
     async def undo_decision(request: Request) -> Response:
@@ -213,9 +223,15 @@ def _register_discovery_routes(application: FastAPI, sessions: BrowserSessionSto
             return RedirectResponse("/", status_code=303)
         outcome = session.undo_last_decision()
         if outcome.get("restored_candidate_id"):
-            return _redirect("/discover", notice="Your last non-match decision was restored.")
+            return _redirect(
+                "/discover",
+                notice="Your last non-match decision was restored.",
+            )
         if outcome.get("kind") == "match_requires_unmatch":
-            return _redirect("/discover", error="Matches cannot be rewound. Unmatch from the chat instead.")
+            return _redirect(
+                "/discover",
+                error="Matches cannot be rewound. Unmatch from the chat instead.",
+            )
         return _redirect("/discover", notice="There is nothing to undo yet.")
 
     @application.post("/discover/report")
@@ -235,7 +251,10 @@ def _register_discovery_routes(application: FastAPI, sessions: BrowserSessionSto
                 evidence_note=evidence_note,
             )
         except (DomainError, ValueError) as error:
-            message = _domain_message(error) if isinstance(error, DomainError) else "Unknown report reason."
+            if isinstance(error, DomainError):
+                message = _domain_message(error)
+            else:
+                message = "Unknown report reason."
             return _redirect("/discover", error=message)
         return _redirect(
             "/community",
@@ -243,7 +262,10 @@ def _register_discovery_routes(application: FastAPI, sessions: BrowserSessionSto
         )
 
 
-def _register_profile_routes(application: FastAPI, sessions: BrowserSessionStore) -> None:
+def _register_profile_routes(
+    application: FastAPI,
+    sessions: BrowserSessionStore,
+) -> None:
     @application.get("/profile", response_class=HTMLResponse)
     async def profile(request: Request) -> Response:
         session = _adult_session(request, sessions)
@@ -274,7 +296,10 @@ def _register_profile_routes(application: FastAPI, sessions: BrowserSessionStore
             about=about.strip()[:500],
             pronouns=pronouns.strip()[:64],
         )
-        return _redirect("/profile", notice="Profile saved to this local R&D session.")
+        return _redirect(
+            "/profile",
+            notice="Profile saved to this local R&D session.",
+        )
 
     @application.get("/filters", response_class=HTMLResponse)
     async def filters(request: Request) -> Response:
@@ -302,18 +327,31 @@ def _register_profile_routes(application: FastAPI, sessions: BrowserSessionStore
         session = _adult_session(request, sessions)
         if session is None:
             return RedirectResponse("/", status_code=303)
-        if immediate_intent not in IMMEDIATE_INTENTS or relational_openness not in RELATIONAL_OPENNESS:
-            return _redirect("/filters", error="Choose supported Looking For options.")
-        safe_boundaries = tuple(value for value in required_boundaries if value in BOUNDARY_OPTIONS)
+        invalid_intent = immediate_intent not in IMMEDIATE_INTENTS
+        invalid_openness = relational_openness not in RELATIONAL_OPENNESS
+        if invalid_intent or invalid_openness:
+            return _redirect(
+                "/filters",
+                error="Choose supported Looking For options.",
+            )
+        safe_boundaries = tuple(
+            value for value in required_boundaries if value in BOUNDARY_OPTIONS
+        )
         session.update_preferences(
             immediate_intent=immediate_intent,
             relational_openness=relational_openness,
             required_boundaries=safe_boundaries,
         )
-        return _redirect("/discover", notice="Filters updated. Ranking weights remain fixed.")
+        return _redirect(
+            "/discover",
+            notice="Filters updated. Ranking weights remain fixed.",
+        )
 
 
-def _register_community_routes(application: FastAPI, sessions: BrowserSessionStore) -> None:
+def _register_community_routes(
+    application: FastAPI,
+    sessions: BrowserSessionStore,
+) -> None:
     @application.get("/community", response_class=HTMLResponse)
     async def community_review(request: Request) -> Response:
         session = _adult_session(request, sessions)
@@ -349,9 +387,15 @@ def _register_community_routes(application: FastAPI, sessions: BrowserSessionSto
         try:
             session.vote_on_bot_case(case_id, reviewer_id, VoteChoice(choice))
         except (DomainError, ValueError) as error:
-            message = _domain_message(error) if isinstance(error, DomainError) else "Unknown vote."
+            if isinstance(error, DomainError):
+                message = _domain_message(error)
+            else:
+                message = "Unknown vote."
             return _redirect("/community", error=message)
-        return _redirect("/community", notice="One private synthetic review vote was recorded.")
+        return _redirect(
+            "/community",
+            notice="One private synthetic review vote was recorded.",
+        )
 
     @application.post("/community/{case_id}/appeal")
     async def appeal_case(request: Request, case_id: str) -> Response:
@@ -362,7 +406,10 @@ def _register_community_routes(application: FastAPI, sessions: BrowserSessionSto
             session.appeal_bot_containment(case_id)
         except DomainError as error:
             return _redirect("/community", error=_domain_message(error))
-        return _redirect("/community", notice="Synthetic appeal opened. Containment remains pending review.")
+        return _redirect(
+            "/community",
+            notice="Synthetic appeal opened. Containment remains pending review.",
+        )
 
     @application.post("/community/{case_id}/adjudicate")
     async def adjudicate_case(request: Request, case_id: str) -> Response:
@@ -374,10 +421,16 @@ def _register_community_routes(application: FastAPI, sessions: BrowserSessionSto
         except DomainError as error:
             return _redirect("/community", error=_domain_message(error))
         outcome = "bot removed from discovery" if case.contained else "human restored"
-        return _redirect("/community", notice=f"Synthetic fixture adjudicated: {outcome}.")
+        return _redirect(
+            "/community",
+            notice=f"Synthetic fixture adjudicated: {outcome}.",
+        )
 
 
-def _register_match_routes(application: FastAPI, sessions: BrowserSessionStore) -> None:
+def _register_match_routes(
+    application: FastAPI,
+    sessions: BrowserSessionStore,
+) -> None:
     @application.get("/matches", response_class=HTMLResponse)
     async def matches(request: Request) -> Response:
         session = _adult_session(request, sessions)
@@ -444,7 +497,10 @@ def _register_match_routes(application: FastAPI, sessions: BrowserSessionStore) 
             session.propose_meetup(match_id, suggestion_id)
         except DomainError as error:
             return _redirect(_chat_path(match_id), error=_domain_message(error))
-        return _redirect(_chat_path(match_id), notice="Meetup proposal added. No location was shared.")
+        return _redirect(
+            _chat_path(match_id),
+            notice="Meetup proposal added. No location was shared.",
+        )
 
     @application.post("/matches/{match_id:path}/extend")
     async def extend_chat(request: Request, match_id: str) -> Response:
@@ -455,7 +511,10 @@ def _register_match_routes(application: FastAPI, sessions: BrowserSessionStore) 
             session.extend_messages(match_id)
         except DomainError as error:
             return _redirect(_chat_path(match_id), error=_domain_message(error))
-        return _redirect(_chat_path(match_id), notice="Synthetic mutual extension applied once.")
+        return _redirect(
+            _chat_path(match_id),
+            notice="Synthetic mutual extension applied once.",
+        )
 
     @application.post("/matches/{match_id:path}/unmatch")
     async def unmatch(request: Request, match_id: str) -> Response:
@@ -466,7 +525,10 @@ def _register_match_routes(application: FastAPI, sessions: BrowserSessionStore) 
             session.unmatch(match_id)
         except DomainError as error:
             return _redirect(_chat_path(match_id), error=_domain_message(error))
-        return _redirect("/matches", notice="Unmatched. This conversation is no longer active.")
+        return _redirect(
+            "/matches",
+            notice="Unmatched. This conversation is no longer active.",
+        )
 
     @application.post("/matches/{match_id:path}/block")
     async def block(request: Request, match_id: str) -> Response:
@@ -477,7 +539,10 @@ def _register_match_routes(application: FastAPI, sessions: BrowserSessionStore) 
             session.block(match_id)
         except DomainError as error:
             return _redirect(_chat_path(match_id), error=_domain_message(error))
-        return _redirect("/matches", notice="Blocked. Visible conversation content was purged.")
+        return _redirect(
+            "/matches",
+            notice="Blocked. Visible conversation content was purged.",
+        )
 
     @application.post("/matches/{match_id:path}/report")
     async def report_match(
@@ -497,9 +562,15 @@ def _register_match_routes(application: FastAPI, sessions: BrowserSessionStore) 
                 evidence_note=evidence_note,
             )
         except (DomainError, ValueError) as error:
-            message_text = _domain_message(error) if isinstance(error, DomainError) else "Unknown report reason."
+            if isinstance(error, DomainError):
+                message_text = _domain_message(error)
+            else:
+                message_text = "Unknown report reason."
             return _redirect(_chat_path(match_id), error=message_text)
-        return _redirect("/community", notice="Conversation report entered private community review.")
+        return _redirect(
+            "/community",
+            notice="Conversation report entered private community review.",
+        )
 
 
 def _ensure_session(
@@ -514,7 +585,10 @@ def _ensure_session(
     return token, session, True
 
 
-def _adult_session(request: Request, sessions: BrowserSessionStore) -> ResearchSession | None:
+def _adult_session(
+    request: Request,
+    sessions: BrowserSessionStore,
+) -> ResearchSession | None:
     session = sessions.get(request.cookies.get(SESSION_COOKIE))
     if session is None or not session.adult_accepted:
         return None
@@ -555,14 +629,18 @@ def _domain_message(error: DomainError) -> str:
     messages = {
         "adult_gate_required": "Complete the adults-only gate first.",
         "candidate_not_found": "That synthetic profile is unavailable.",
-        "candidate_temporarily_contained": "That profile is temporarily hidden pending review.",
+        "candidate_temporarily_contained": (
+            "That profile is temporarily hidden pending review."
+        ),
         "candidate_already_decided": "You already made a decision on this profile.",
         "duplicate_bot_vote": "Each trusted reviewer gets one vote per case.",
         "reviewer_not_eligible": "This synthetic reviewer is not eligible to vote.",
         "reviewer_not_independent": "Review quorum requires independent trust clusters.",
         "case_voting_closed": "Community voting is closed for this case.",
         "case_not_contained": "Only a contained profile can appeal.",
-        "case_not_ready_for_adjudication": "Complete community review before adjudication.",
+        "case_not_ready_for_adjudication": (
+            "Complete community review before adjudication."
+        ),
         "case_already_adjudicated": "This case already has a synthetic adjudication.",
         "report_limit_reached": "The synthetic report limit has been reached.",
         "active_bot_case_exists": "That profile already has an active private review.",
@@ -570,9 +648,15 @@ def _domain_message(error: DomainError) -> str:
         "match_not_active": "That match is no longer active.",
         "message_required": "Write a message before sending.",
         "message_too_long": "Messages are limited to 500 characters.",
-        "message_limit_reached": "This chat reached its message limit. Plan a meetup, extend once, or unmatch.",
-        "message_extension_already_used": "The one-time message extension was already used.",
-        "message_extension_not_available": "The extension becomes available when the current limit is reached.",
+        "message_limit_reached": (
+            "This chat reached its message limit. Plan a meetup, extend once, or unmatch."
+        ),
+        "message_extension_already_used": (
+            "The one-time message extension was already used."
+        ),
+        "message_extension_not_available": (
+            "The extension becomes available when the current limit is reached."
+        ),
         "unknown_meetup_suggestion": "Choose one of the available meetup ideas.",
     }
     return messages.get(error.code, error.code.replace("_", " "))
