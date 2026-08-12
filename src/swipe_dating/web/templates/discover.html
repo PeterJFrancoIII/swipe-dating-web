@@ -12,7 +12,7 @@
   <section class="swipe-stage" aria-label="Swipe profiles">
     {% if candidate %}
       {% set profile = candidate.candidate %}
-      <article class="dating-card" data-swipe-card>
+      <article class="dating-card">
         <div class="photo-surface profile-visual photo-{{ profile.id }}" role="img" aria-label="Synthetic profile placeholder for {{ profile.display_name }}">
           <div class="photo-label">SYNTHETIC PROFILE</div>
           <div class="photo-monogram" aria-hidden="true">{{ profile.display_name[0] }}</div>
@@ -29,17 +29,15 @@
               {% for tag in profile.lifestyle_tags[:3] %}<span>{{ tag.replace('_', ' ') }}</span>{% endfor %}
             </div>
           </div>
-          <div class="swipe-stamp pass-stamp" aria-hidden="true">PASS</div>
-          <div class="swipe-stamp like-stamp" aria-hidden="true">LIKE</div>
         </div>
 
         <div class="decision-deck">
           <form action="/discover/undo" method="post"><button class="round-action undo" type="submit" aria-label="Undo last decision">↶</button></form>
-          <form action="/discover/pass" method="post" data-pass-form>
+          <form action="/discover/pass" method="post">
             <input type="hidden" name="candidate_id" value="{{ profile.id }}">
             <button class="round-action pass" type="submit" aria-label="Pass {{ profile.display_name }}">×</button>
           </form>
-          <form action="/discover/interest" method="post" data-like-form>
+          <form action="/discover/interest" method="post">
             <input type="hidden" name="candidate_id" value="{{ profile.id }}">
             <button class="round-action like" type="submit" aria-label="Like {{ profile.display_name }}">♥</button>
           </form>
@@ -63,7 +61,7 @@
         </div>
       </article>
 
-      <p class="gesture-hint">Drag the card or use the buttons · ← pass · → like</p>
+      <p class="gesture-hint">Choose Pass or Like · no opener required</p>
       {% if not feature_proximity %}<p class="feature-note">Nearby mode stays off until core Swipe + bot-control acceptance is complete.</p>{% endif %}
     {% else %}
       <section class="empty-state centered">
