@@ -23,7 +23,17 @@ jobs:
           enable-cache: true
       - run: uv sync --all-extras --locked
       - run: uv run python -m compileall -q src tests
-      - run: uv run ruff format --diff . || true
+      - run: uv run ruff format .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ruff-formatted-${{ matrix.python-version }}
+          path: |
+            scripts/browser_acceptance.py
+            src/swipe_dating/application/session.py
+            src/swipe_dating/fixtures.py
+            src/swipe_dating/web/app.py
+            tests/integration/test_web.py
+            tests/unit/test_conversations.py
       - run: uv run pytest --cov=swipe_dating --cov-branch --cov-report=term-missing
       - run: uv run ruff check .
       - run: uv run ruff format --check .
