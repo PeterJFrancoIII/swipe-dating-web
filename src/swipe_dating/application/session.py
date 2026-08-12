@@ -26,10 +26,12 @@ from swipe_dating.domain.bot_moderation import (
 from swipe_dating.domain.conversations import (
     ConversationMatch,
     ConversationState,
+    MeetupSuggestion,
     Message,
     block_conversation,
     build_meetup_suggestions,
     create_conversation_state,
+    extend_conversation,
     get_suppressed_candidate_ids,
     receive_synthetic_reply,
     record_interest,
@@ -164,7 +166,7 @@ class ResearchSession:
         except KeyError as error:
             raise DomainError("match_not_found") from error
 
-    def meetup_suggestions(self, match_id: str) -> tuple[object, ...]:
+    def meetup_suggestions(self, match_id: str) -> tuple[MeetupSuggestion, ...]:
         return build_meetup_suggestions(self.match(match_id))
 
     def pass_candidate(self, candidate_id: str) -> Mapping[str, object]:
@@ -307,6 +309,12 @@ class ResearchSession:
         )
         self.conversations = result.state
         return result.value
+
+    def extend_messages(self, match_id: str) -> Mapping[str, object]:
+        self._require_adult()
+        result = extend_conversation(self.conversations, match_id=match_id)
+        self.conversations = result.state
+        return result.outcome
 
     def unmatch(self, match_id: str) -> Mapping[str, object]:
         conversation = unmatch_conversation(
