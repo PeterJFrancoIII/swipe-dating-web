@@ -4,6 +4,7 @@ import pytest
 
 from swipe_dating.domain.adult import (
     adult_credential_is_valid,
+    completed_age_years,
     create_adult_credential,
     is_adult_on,
     parse_date_only,
@@ -28,6 +29,13 @@ from swipe_dating.domain.preferences import filter_key_allowed, intents_are_comp
 )
 def test_exact_adult_boundary(birth_date: str, on_date: str, expected: bool) -> None:
     assert is_adult_on(birth_date, on_date) is expected
+
+
+def test_completed_age_years_uses_the_calendar_birthday() -> None:
+    assert completed_age_years("2000-01-02", "2026-01-01") == 25
+    assert completed_age_years("2000-01-01", "2026-01-01") == 26
+    assert completed_age_years("not-a-date", "2026-01-01") is None
+    assert completed_age_years("2027-01-01", "2026-01-01") is None
 
 
 def test_date_only_parser_rejects_calendar_and_shape_errors() -> None:

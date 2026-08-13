@@ -3,7 +3,7 @@
 {% block body_class %}swipe-screen{% endblock %}
 {% block topbar %}
   <div class="swipe-toolbar">
-    <a class="avatar-button" href="/profile" aria-label="Open profile">YOU</a>
+    <a class="avatar-button" href="/profile" aria-label="Open profile">{{ (session.local_state.profile.display_name or 'You')[0] }}</a>
     <a class="wordmark compact" href="/discover" aria-label="Swipe"><span class="wordmark-mark">S</span></a>
     <a class="icon-button" href="/filters" aria-label="Open filters">☰</a>
   </div>
@@ -26,7 +26,7 @@
             <p class="looking-for">{{ profile.immediate_intent.replace('_', ' ') }} · {{ profile.relational_openness.replace('_', ' ') }}</p>
             <p class="card-bio">{{ profile.about }}</p>
             <div class="trait-row" aria-label="Self-declared interests">
-              {% for tag in profile.lifestyle_tags[:3] %}<span>{{ tag.replace('_', ' ') }}</span>{% endfor %}
+              {% for tag in profile.lifestyle_tags[:3] %}<span>{{ tag | choice_label }}</span>{% endfor %}
             </div>
           </div>
         </div>

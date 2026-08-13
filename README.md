@@ -31,7 +31,7 @@ uv run playwright install chromium
 uv run swipe-web
 ```
 
-`swipe-web` starts on `http://127.0.0.1:8080` and opens the default browser. The birth-date field starts blank; deliberately choose an adult date to enter. The interface loads no remote UI assets or JavaScript framework.
+`swipe-web` starts on `http://127.0.0.1:8080` and opens the default browser. The birth-date wheels start unselected; roll month, day, and year in MM-DD-YYYY order and choose an adult date to enter. The interface loads no remote UI assets or JavaScript framework.
 
 The JSON contract adapter and deterministic simulator remain available separately:
 

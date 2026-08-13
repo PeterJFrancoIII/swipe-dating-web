@@ -21,22 +21,80 @@
         <span class="step-label">AGE CHECK</span>
         <h2>Enter your birth date</h2>
         <p id="birth-date-help" class="muted">
-          Use YYYY-MM-DD. Your browser may display the date in your local format.
+          Roll month, day, and year. The order is MM-DD-YYYY.
         </p>
       </div>
       {% if error %}
         <div class="alert error" role="alert">{{ error }}</div>
       {% endif %}
-      <label for="birth_date">Birth date</label>
-      <input
-        id="birth_date"
-        name="birth_date"
-        type="date"
-        autocomplete="bday"
-        aria-describedby="birth-date-help"
-        value="{{ birth_date if error else '' }}"
-        required
-      >
+      <fieldset class="dob-picker">
+        <legend>Birth date</legend>
+        <div class="dob-wheels" role="group" aria-describedby="birth-date-help">
+          <div class="dob-wheel">
+            <p class="dob-wheel-heading" id="birth-month-label">Month</p>
+            <div class="dob-wheel-frame">
+              <div class="dob-wheel-window" aria-labelledby="birth-month-label">
+                {% for month in birth_months %}
+                  <label class="dob-wheel-option">
+                    <input
+                      type="radio"
+                      name="birth_month"
+                      value="{{ month }}"
+                      autocomplete="bday-month"
+                      {% if selected_month == month %}checked{% endif %}
+                      required
+                    >
+                    <span>{{ month }}</span>
+                  </label>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+          <div class="dob-wheel">
+            <p class="dob-wheel-heading" id="birth-day-label">Day</p>
+            <div class="dob-wheel-frame">
+              <div class="dob-wheel-window" aria-labelledby="birth-day-label">
+                {% for day in birth_days %}
+                  <label class="dob-wheel-option">
+                    <input
+                      type="radio"
+                      name="birth_day"
+                      value="{{ day }}"
+                      autocomplete="bday-day"
+                      {% if selected_day == day %}checked{% endif %}
+                      required
+                    >
+                    <span>{{ day }}</span>
+                  </label>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+          <div class="dob-wheel">
+            <p class="dob-wheel-heading" id="birth-year-label">Year</p>
+            <div class="dob-wheel-frame">
+              <div class="dob-wheel-window" aria-labelledby="birth-year-label">
+                {% for year in birth_years %}
+                  <label class="dob-wheel-option">
+                    <input
+                      type="radio"
+                      name="birth_year"
+                      value="{{ year }}"
+                      autocomplete="bday-year"
+                      {% if selected_year == year %}checked{% endif %}
+                      required
+                    >
+                    <span>{{ year }}</span>
+                  </label>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </fieldset>
+      {% if next_path is defined and next_path %}
+        <input type="hidden" name="next_path" value="{{ next_path }}">
+      {% endif %}
       <button class="button primary full" type="submit">Enter synthetic app</button>
       <p class="fine-print">
         There is no parental-consent bypass. Eligibility fails closed when the date cannot be
@@ -44,4 +102,41 @@
       </p>
     </form>
   </section>
+  <script>
+    (function () {
+      function optionAtCenter(windowEl) {
+        const mid = windowEl.getBoundingClientRect().top + windowEl.clientHeight / 2;
+        let closest = null;
+        let distance = Infinity;
+        windowEl.querySelectorAll(".dob-wheel-option").forEach(function (option) {
+          const box = option.getBoundingClientRect();
+          const delta = Math.abs(box.top + box.height / 2 - mid);
+          if (delta < distance) {
+            distance = delta;
+            closest = option;
+          }
+        });
+        return closest;
+      }
+      function sync(windowEl) {
+        const option = optionAtCenter(windowEl);
+        const input = option && option.querySelector("input[type='radio']");
+        if (input && !input.checked) {
+          input.checked = true;
+        }
+      }
+      document.querySelectorAll(".dob-wheel-window").forEach(function (windowEl) {
+        let frame = 0;
+        windowEl.addEventListener("scroll", function () {
+          if (frame) {
+            return;
+          }
+          frame = window.requestAnimationFrame(function () {
+            frame = 0;
+            sync(windowEl);
+          });
+        }, { passive: true });
+      });
+    })();
+  </script>
 {% endblock %}

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}How you appear · Swipe{% endblock %}
+{% block body_class %}swipe-screen{% endblock %}
+{% block topbar %}
+  <div class="sheet-topbar"><a class="back-button" href="/profile" aria-label="Back to profile">‹</a><strong>How you appear</strong><span class="topbar-spacer"></span></div>
+{% endblock %}
+{% block content %}
+  <section class="swipe-stage" aria-label="Preview of your swipe card">
+    <p class="preview-kicker">This is the card other people see. Alignment and distance stay off because those belong to the other person.</p>
+    {% include "_dating_card.html" %}
+  </section>
+{% endblock %}

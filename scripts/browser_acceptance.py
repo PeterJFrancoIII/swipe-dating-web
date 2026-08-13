@@ -57,7 +57,9 @@ def enter_synthetic_app(page: Page, base_url: str) -> None:
     page.screenshot(path=SCREENSHOT_DIR / "age-gate.png", full_page=True)
     verify_skip_link(page)
 
-    page.get_by_label("Birth date").fill("2000-01-01")
+    page.locator("input[name='birth_month'][value='01']").check()
+    page.locator("input[name='birth_day'][value='01']").check()
+    page.locator("input[name='birth_year'][value='2000']").check()
     page.get_by_role("button", name="Enter synthetic app").click()
     page.wait_for_url(f"{base_url}/discover")
 

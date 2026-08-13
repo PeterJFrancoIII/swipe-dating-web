@@ -48,6 +48,17 @@ def is_adult_on(birth_date: str, on_date: str) -> bool:
     return today >= adult_date
 
 
+def completed_age_years(birth_date: str, on_date: str) -> int | None:
+    birth = parse_date_only(birth_date)
+    today = parse_date_only(on_date)
+    if birth is None or today is None or birth > today:
+        return None
+    years = today.year - birth.year
+    if (today.month, today.day) < (birth.month, birth.day):
+        years -= 1
+    return years
+
+
 def create_adult_credential(
     *,
     subject_id: str,

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ card_name }} · Swipe{% endblock %}
+{% block body_class %}swipe-screen{% endblock %}
+{% block topbar %}
+  <div class="sheet-topbar"><a class="back-button" href="/discover" aria-label="Back to swipe">‹</a><strong>{{ card_name }}</strong><span class="topbar-spacer"></span></div>
+{% endblock %}
+{% block content %}
+  <section class="swipe-stage" aria-label="Shared profile">
+    <p class="preview-kicker">Shared profile card. Local R&amp;D link — not a public internet identity.</p>
+    {% include "_dating_card.html" %}
+  </section>
+{% endblock %}

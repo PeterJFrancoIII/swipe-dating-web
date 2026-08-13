@@ -4,11 +4,12 @@ from collections.abc import AsyncIterator
 from datetime import date
 from html.parser import HTMLParser
 from unittest.mock import patch
+from urllib.parse import unquote_plus
 
 import httpx
 import pytest
 
-from swipe_dating.web.app import BrowserSessionStore, create_web_app
+from swipe_dating.web.app import BrowserSessionStore, _safe_next_path, create_web_app
 
 NOW = 1_753_185_600_000
 
@@ -95,6 +96,15 @@ class RenderedHtml(HTMLParser):
             if tag in ("*", element_tag) and class_name in (attributes.get("class") or "").split()
         ]
 
+    def radio(self, name: str, value: str) -> dict[str, str | None]:
+        return next(
+            attributes
+            for tag, attributes in self.elements
+            if tag == "input"
+            and attributes.get("name") == name
+            and attributes.get("value") == value
+        )
+
 
 @pytest.fixture
 def anyio_backend() -> str:
@@ -145,17 +155,30 @@ async def test_health_and_age_gate_are_accessible_and_fail_closed(
 
     gate = await web_client.get("/")
     document = RenderedHtml(gate.text)
-    birth_date = document.element_with("input", "id", "birth_date")
+    month = document.element_with("input", "name", "birth_month")
+    day = document.element_with("input", "name", "birth_day")
+    year = document.element_with("input", "name", "birth_year")
     assert document.element_with("a", "href", "#main-content") is not None
     assert document.element_with("main", "id", "main-content") is not None
-    assert document.element_with("label", "for", "birth_date") is not None
-    assert birth_date is not None
-    assert birth_date.get("name") == "birth_date"
-    assert birth_date.get("autocomplete") == "bday"
-    assert birth_date.get("type") == "date"
-    assert birth_date.get("value") in (None, "")
+    assert document.element_with("*", "id", "birth-month-label") is not None
+    assert document.element_with("*", "id", "birth-day-label") is not None
+    assert document.element_with("*", "id", "birth-year-label") is not None
+    assert month is not None
+    assert day is not None
+    assert year is not None
+    assert month.get("type") == "radio"
+    assert day.get("type") == "radio"
+    assert year.get("type") == "radio"
+    assert month.get("autocomplete") == "bday-month"
+    assert day.get("autocomplete") == "bday-day"
+    assert year.get("autocomplete") == "bday-year"
+    assert "checked" not in month
+    assert "checked" not in day
+    assert "checked" not in year
+    assert document.element_with("input", "id", "birth_date") is None
     assert "Adults 18+ only" in gate.text
     assert "LOCAL RESEARCH BUILD" in gate.text
+    assert "MM-DD-YYYY" in gate.text
     assert "No real profiles" in gate.text
     assert "No real messages" in gate.text
     assert "No location collection" in gate.text
@@ -168,14 +191,33 @@ async def test_health_and_age_gate_are_accessible_and_fail_closed(
 
     invalid = await web_client.post("/age-gate", data={"birth_date": "not-a-date"})
     assert invalid.status_code == 400
-    assert "Use YYYY-MM-DD only" in invalid.text
+    assert "Choose a real calendar date as month, day, and year." in invalid.text
 
     rejected = await web_client.post("/age-gate", data={"birth_date": "2010-01-01"})
     rejected_document = RenderedHtml(rejected.text)
-    rejected_birth_date = rejected_document.element_with("input", "id", "birth_date")
     assert rejected.status_code == 400
-    assert rejected_birth_date is not None
-    assert rejected_birth_date.get("value") == "2010-01-01"
+    assert "checked" in rejected_document.radio("birth_month", "01")
+    assert "checked" in rejected_document.radio("birth_day", "01")
+    assert "checked" in rejected_document.radio("birth_year", "2010")
+
+
+@pytest.mark.anyio
+async def test_age_gate_accepts_mm_dd_yyyy_wheels_and_rejects_impossible_dates(
+    web_client: httpx.AsyncClient,
+) -> None:
+    impossible = await web_client.post(
+        "/age-gate",
+        data={"birth_month": "02", "birth_day": "31", "birth_year": "2000"},
+    )
+    assert impossible.status_code == 400
+    assert "Choose a real calendar date as month, day, and year." in impossible.text
+
+    wheeled = await web_client.post(
+        "/age-gate",
+        data={"birth_month": "01", "birth_day": "01", "birth_year": "2000"},
+    )
+    assert wheeled.status_code == 303
+    assert wheeled.headers["location"] == "/discover"
 
 
 @pytest.mark.anyio
@@ -225,7 +267,7 @@ async def test_swipe_card_is_focused_accessible_and_has_nested_controls(
 
 
 @pytest.mark.anyio
-async def test_profile_and_filters_are_nested_not_primary_tabs(
+async def test_profile_and_filters_are_nested_not_primary_tabs(  # noqa: PLR0915
     web_client: httpx.AsyncClient,
 ) -> None:
     await enter_app(web_client)
@@ -239,12 +281,53 @@ async def test_profile_and_filters_are_nested_not_primary_tabs(
             "display_name": "Taylor",
             "pronouns": "they/them",
             "about": "Climbing and films.",
+            "gender_identities": ["woman"],
+            "show_genders": ["man", "woman", "non_binary"],
+            "lifestyle_tags": ["coffee", "movie_night"],
+            "hobby_tags": ["climbing"],
+            "personality_tags": ["calm", "intense"],
         },
     )
     assert saved.status_code == 303
     refreshed = await web_client.get("/profile")
     assert "Taylor" in refreshed.text
     assert "Climbing and films." in refreshed.text
+    assert "they/them" in refreshed.text
+    assert "Woman" in refreshed.text
+    assert "Agender" in refreshed.text
+    assert "Genderfluid" in refreshed.text
+    assert "Two-Spirit" in refreshed.text
+    assert "Show me" in refreshed.text
+    assert "Sexual preference" in refreshed.text
+    assert "Hobbies" in refreshed.text
+    assert "Personality" in refreshed.text
+    assert "In the bedroom" in refreshed.text
+    assert "Your current top 5 favorites" in refreshed.text
+    assert "Show on my card" in refreshed.text
+    assert "Always shown on your card" in refreshed.text
+    assert "Always private" in refreshed.text
+    assert "Calm" in refreshed.text
+    assert "Intense" in refreshed.text
+    assert "BDSM" in refreshed.text
+    assert "Vanilla" in refreshed.text
+    assert "Add photos" in refreshed.text
+    assert "multiple" in refreshed.text
+    assert "Move up" not in refreshed.text
+    assert refreshed.text.count('name="photo"') == 1
+    assert "Preview how you appear" in refreshed.text
+    preview = await web_client.get("/profile/preview")
+    assert preview.status_code == 200
+    assert "Taylor" in preview.text
+    assert "Climbing and films." in preview.text
+    assert "Woman" in preview.text
+    assert "Calm" in preview.text
+    assert "Show me" not in preview.text
+    assert "Sexual preference" not in preview.text
+    assert "BDSM" not in preview.text
+    assert 'name="photo_id"' not in refreshed.text
+    document = RenderedHtml(refreshed.text)
+    assert "checked" in document.radio("gender_identities", "woman")
+    assert "checked" in document.radio("show_genders", "man")
 
     filters = await web_client.get("/filters")
     filters_document = RenderedHtml(filters.text)
@@ -276,6 +359,273 @@ async def test_profile_and_filters_are_nested_not_primary_tabs(
     )
     assert applied.status_code == 303
     assert applied.headers["location"].startswith("/discover")
+    assert "Agender" in filters.text
+    gendered = await web_client.post(
+        "/filters",
+        data={
+            "immediate_intent": "casual_dating",
+            "relational_openness": "open_to_more",
+            "required_boundaries": [
+                "condoms_required",
+                "public_first_meet",
+                "no_drugs",
+            ],
+            "show_genders": ["man"],
+        },
+    )
+    assert gendered.status_code == 303
+    deck = await web_client.get("/discover")
+    assert "Jordan" in deck.text
+    assert "Alex" not in deck.text
+
+
+@pytest.mark.anyio
+async def test_profile_card_visibility_hides_optional_fields_not_gender(
+    web_client: httpx.AsyncClient,
+) -> None:
+    await enter_app(web_client)
+    hidden = await web_client.post(
+        "/profile",
+        data={
+            "display_name": "Taylor",
+            "pronouns": "they/them",
+            "about": "Climbing and films.",
+            "gender_identities": ["woman"],
+            "show_genders": ["man"],
+            "lifestyle_tags": ["coffee"],
+            "hobby_tags": ["climbing"],
+            "personality_tags": ["calm"],
+            "bedroom_tags": ["bdsm", "vanilla"],
+            "card_visibility_present": "1",
+            "show_on_card": ["photos", "interests"],
+        },
+    )
+    assert hidden.status_code == 303
+    preview = await web_client.get("/profile/preview")
+    assert preview.status_code == 200
+    assert "Someone" in preview.text
+    assert "Taylor" not in preview.text
+    assert "Climbing and films." not in preview.text
+    assert "they/them" not in preview.text
+    assert "Woman" in preview.text
+    assert "Coffee" in preview.text
+    assert "Climbing" not in preview.text
+    assert "Calm" not in preview.text
+    assert "BDSM" not in preview.text
+    assert "Vanilla" not in preview.text
+    assert "Show me" not in preview.text
+    assert "Sexual preference" not in preview.text
+    revealed = await web_client.post(
+        "/profile",
+        data={
+            "display_name": "Taylor",
+            "pronouns": "they/them",
+            "about": "Climbing and films.",
+            "gender_identities": ["woman"],
+            "show_genders": ["man"],
+            "lifestyle_tags": ["coffee"],
+            "hobby_tags": ["climbing"],
+            "personality_tags": ["calm"],
+            "bedroom_tags": ["bdsm", "vanilla"],
+            "card_visibility_present": "1",
+            "show_on_card": [
+                "photos",
+                "display_name",
+                "age",
+                "pronouns",
+                "about",
+                "looking_for",
+                "interests",
+                "hobbies",
+                "personality",
+                "bedroom",
+            ],
+        },
+    )
+    assert revealed.status_code == 303
+    shown = await web_client.get("/profile/preview")
+    assert "Taylor" in shown.text
+    assert "Climbing and films." in shown.text
+    assert "they/them" in shown.text
+    assert "Woman" in shown.text
+    assert "BDSM" in shown.text
+    assert "Vanilla" in shown.text
+    assert "Show me" not in shown.text
+
+
+PNG_1X1 = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+    b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
+
+@pytest.mark.anyio
+async def test_profile_photos_upload_serve_and_remove(  # noqa: PLR0915
+    web_client: httpx.AsyncClient,
+) -> None:
+    missing = await web_client.get("/profile/photos/0")
+    assert missing.status_code == 303
+    await enter_app(web_client)
+    empty = await web_client.get("/profile/photos/0")
+    assert empty.status_code == 404
+    uploaded = await web_client.post(
+        "/profile/photos",
+        data={"slot": "0"},
+        files={"photo": ("me.png", PNG_1X1, "image/png")},
+    )
+    assert uploaded.status_code == 303
+    assert "notice=" in uploaded.headers["location"]
+    image = await web_client.get("/profile/photos/0")
+    assert image.status_code == 200
+    assert image.content[4:12] == b"ftypavif"
+    assert image.headers["content-type"].startswith("image/avif")
+    assert image.headers["cache-control"] == "private, no-store"
+    assert image.headers["x-content-type-options"] == "nosniff"
+    heif = await web_client.get("/profile/photos/0/heif")
+    assert heif.status_code == 200
+    assert heif.content[4:8] == b"ftyp"
+    assert heif.headers["content-type"].startswith("image/heic")
+    profile = await web_client.get("/profile")
+    assert "/profile/photos/0" in profile.text
+    assert "/profile/photos/0/heif" in profile.text
+    assert "Remove photo 1" in profile.text
+    assert "Add photo" in profile.text
+    assert "1080×2400" in profile.text
+    assert profile.text.count('name="photo"') == 1
+    assert "multiple" in profile.text
+    assert "Move up" not in profile.text
+    assert "Drag" in profile.text
+    second = await web_client.post(
+        "/profile/photos",
+        files=[
+            ("photo", ("me2.png", PNG_1X1, "image/png")),
+        ],
+    )
+    assert second.status_code == 303
+    assert "notice=" in second.headers["location"]
+    two = await web_client.get("/profile/photos/1")
+    assert two.status_code == 200
+    moved = await web_client.post(
+        "/profile/photos/reorder",
+        data={"order": ["1", "0"]},
+    )
+    assert moved.status_code == 303
+    assert "notice=" in moved.headers["location"]
+    preview = await web_client.get("/profile/preview")
+    assert preview.status_code == 200
+    assert "How you appear" in preview.text
+    assert "This is the card other people see" in preview.text
+    shared = await web_client.post("/profile/share")
+    assert shared.status_code == 303
+    profile_shared = await web_client.get("/profile")
+    assert 'id="share-link"' in profile_shared.text
+    rejected = await web_client.post(
+        "/profile/photos",
+        data={"slot": "1"},
+        files={"photo": ("me.txt", b"not-an-image", "image/png")},
+    )
+    assert rejected.status_code == 303
+    assert "error=" in rejected.headers["location"]
+    invalid_slot = await web_client.post(
+        "/profile/photos",
+        data={"slot": "9"},
+        files={"photo": ("me.png", PNG_1X1, "image/png")},
+    )
+    assert invalid_slot.status_code == 303
+    assert "error=" in invalid_slot.headers["location"]
+    removed = await web_client.post("/profile/photos/0/remove")
+    assert removed.status_code == 303
+    packed = await web_client.get("/profile/photos/0")
+    assert packed.status_code == 200
+    removed_last = await web_client.post("/profile/photos/0/remove")
+    assert removed_last.status_code == 303
+    gone = await web_client.get("/profile/photos/0")
+    assert gone.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_profile_photo_picker_keeps_only_the_six_slot_limit(
+    web_client: httpx.AsyncClient,
+) -> None:
+    await enter_app(web_client)
+    uploaded = await web_client.post(
+        "/profile/photos",
+        files=[("photo", (f"me{index}.png", PNG_1X1, "image/png")) for index in range(8)],
+    )
+    assert uploaded.status_code == 303
+    location = unquote_plus(uploaded.headers["location"])
+    assert "6 photos added" in location
+    assert "Extras were skipped because 6 is the limit." in location
+    sixth = await web_client.get("/profile/photos/5")
+    assert sixth.status_code == 200
+    overflow = await web_client.get("/profile/photos/6")
+    assert overflow.status_code == 404
+    profile = await web_client.get("/profile")
+    assert 'id="photo-picker"' not in profile.text
+    assert "Move up" not in profile.text
+
+
+@pytest.mark.anyio
+async def test_profile_share_link_opens_for_another_adult_session() -> None:
+    store = BrowserSessionStore(clock=lambda: NOW, today="2026-07-22")
+    app = create_web_app(clock=lambda: NOW, today="2026-07-22", session_store=store)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        follow_redirects=False,
+    ) as owner:
+        await enter_app(owner)
+        await owner.post(
+            "/profile",
+            data={"display_name": "Taylor", "about": "Climbing and films.", "pronouns": ""},
+        )
+        await owner.post(
+            "/profile/photos",
+            files={"photo": ("me.png", PNG_1X1, "image/png")},
+        )
+        await owner.post("/profile/share")
+        page = await owner.get("/profile")
+        share_input = RenderedHtml(page.text).element_with("input", "id", "share-link")
+        assert share_input is not None
+        share_url = share_input.get("value") or ""
+        share_path = "/" + share_url.split("/", 3)[-1]
+        assert share_path.startswith("/p/")
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        follow_redirects=False,
+    ) as guest:
+        blocked = await guest.get(share_path)
+        assert blocked.status_code == 303
+        assert "next=" in blocked.headers["location"]
+        await enter_app(guest)
+        shared = await guest.get(share_path)
+        assert shared.status_code == 200
+        assert "Taylor" in shared.text
+        assert "Climbing and films." in shared.text
+        assert "Shared profile card" in shared.text
+
+
+def test_share_next_path_only_allows_local_profile_links() -> None:
+    assert _safe_next_path(None) is None
+    assert _safe_next_path("/discover") is None
+    assert _safe_next_path("/p/abc://evil") is None
+    assert _safe_next_path("/p/abc//nested") is None
+    assert _safe_next_path("/p/has space") is None
+    assert _safe_next_path("/p/ok?photo=1") == "/p/ok"
+
+
+def test_stale_share_token_is_forgotten() -> None:
+    store = BrowserSessionStore(clock=lambda: NOW, today="2026-07-22")
+    token, session = store.create()
+    session.accept_adult_gate("2000-01-01")
+    share = store.publish_share(token, session)
+    assert store.get_by_share(share) is session
+    session.reset_saved_profile()
+    assert store.get_by_share(share) is None
+    assert store.get_by_share("missing") is None
 
 
 @pytest.mark.anyio

@@ -13,7 +13,29 @@ from swipe_dating.domain.local_state import (
 
 def test_default_state_contains_only_approved_fields() -> None:
     assert create_default_local_state().to_dict() == {
-        "profile": {"displayName": "", "about": "", "pronouns": ""},
+        "profile": {
+            "displayName": "",
+            "about": "",
+            "pronouns": "",
+            "genderIdentities": [],
+            "photoId": "",
+            "lifestyleTags": [],
+            "hobbyTags": [],
+            "personalityTags": [],
+            "bedroomTags": [],
+            "cardVisibility": {
+                "photos": True,
+                "displayName": True,
+                "age": True,
+                "pronouns": True,
+                "about": True,
+                "lookingFor": True,
+                "interests": True,
+                "hobbies": True,
+                "personality": True,
+                "bedroom": False,
+            },
+        },
         "cosmetics": {"ownedSkinIds": [], "selectedSkinId": None},
         "ui": {"hapticsEnabled": True, "lastTab": "Swipe"},
     }
@@ -26,6 +48,34 @@ def test_sanitization_truncates_deduplicates_and_excludes_matches_tab() -> None:
                 "displayName": f"  {'x' * 100}  ",
                 "about": " about ",
                 "pronouns": " they/them ",
+                "genderIdentity": "alien",
+                "genderIdentities": ["coffee", "woman", "woman", "agender"],
+                "photoId": "not-a-photo",
+                "lifestyleTags": [
+                    "coffee",
+                    "coffee",
+                    "height",
+                    "gaming",
+                    "books",
+                    "running",
+                    "music",
+                    "travel",
+                    "food",
+                    "art",
+                ],
+                "hobbyTags": ["climbing", "climbing", "height", "yoga"],
+                "personalityTags": ["calm", "calm", "race", "intense"],
+                "bedroomTags": [
+                    "bdsm",
+                    "vanilla",
+                    "height",
+                    "switch",
+                    "rope",
+                    "impact",
+                    "role_play",
+                    "kink",
+                ],
+                "cardVisibility": {"about": False, "bedroom": True, "unknown": True},
             },
             "cosmetics": {
                 "ownedSkinIds": ["neon-orbit", "neon-orbit", ""],
@@ -37,9 +87,30 @@ def test_sanitization_truncates_deduplicates_and_excludes_matches_tab() -> None:
     assert len(sanitized.profile.display_name) == 64
     assert sanitized.profile.about == "about"
     assert sanitized.profile.pronouns == "they/them"
+    assert sanitized.profile.gender_identities == ("woman", "agender")
+    assert sanitized.profile.photo_id == ""
+    assert sanitized.profile.lifestyle_tags == ("coffee", "books", "music", "travel", "food")
+    assert sanitized.profile.hobby_tags == ("climbing", "yoga")
+    assert sanitized.profile.personality_tags == ("calm", "intense")
+    assert sanitized.profile.bedroom_tags == ("bdsm", "vanilla", "switch", "rope", "impact")
+    assert sanitized.profile.visibility.about is False
+    assert sanitized.profile.visibility.bedroom is True
+    assert sanitized.profile.visibility.photos is True
     assert sanitized.cosmetics.owned_skin_ids == ("neon-orbit",)
     assert sanitized.cosmetics.selected_skin_id is None
     assert sanitized.ui.last_tab == "Swipe"
+
+
+def test_legacy_gender_values_map_onto_the_current_catalog() -> None:
+    assert sanitize_local_state(
+        {"profile": {"genderIdentity": "woman"}}
+    ).profile.gender_identities == ("woman",)
+    assert sanitize_local_state(
+        {"profile": {"genderIdentity": "he"}}
+    ).profile.gender_identities == ("man",)
+    assert sanitize_local_state(
+        {"profile": {"genderIdentity": "nonbinary"}}
+    ).profile.gender_identities == ("non_binary",)
 
 
 def test_serialization_strips_all_sensitive_and_session_fields() -> None:

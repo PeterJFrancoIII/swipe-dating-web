@@ -10,6 +10,19 @@
 
     <form action="/filters" method="post" class="settings-form">
       <fieldset>
+        <legend>Show me</legend>
+        <p class="field-help">Choose any genders you want to see. Leave all unchecked to see everyone. This stays private.</p>
+        <div class="choice-grid">
+          {% for option in gender_options %}
+            <label class="choice-card">
+              <input type="checkbox" name="show_genders" value="{{ option }}" {% if option in session.selected_genders %}checked{% endif %}>
+              <span>{{ option | choice_label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <fieldset>
         <legend>Right now</legend>
         <div class="choice-grid">
           {% for option in immediate_intents %}

@@ -5,24 +5,300 @@
   <div class="sheet-topbar"><a class="back-button" href="/discover" aria-label="Close profile">‹</a><strong>Your profile</strong><span class="topbar-spacer"></span></div>
 {% endblock %}
 {% block content %}
+  {% set profile = session.local_state.profile %}
+  {% set vis = profile.visibility %}
+  {% macro show_on_card(field, vis) %}
+    <label class="show-on-card">
+      <input type="checkbox" name="show_on_card" value="{{ field }}" {% if vis[field] %}checked{% endif %}>
+      <span>Show on my card</span>
+    </label>
+  {% endmacro %}
   <section class="settings-sheet">
-    <div class="profile-preview">
-      <span class="profile-preview-avatar">{{ (session.local_state.profile.display_name or 'Y')[0] }}</span>
-      <div><p class="eyebrow">PROFILE</p><h1>{{ session.local_state.profile.display_name or 'Your profile' }}</h1><p>{{ readiness.score }}% ready for this research flow</p></div>
-    </div>
+    <p class="field-help">Photos, name, and bio below are what you edit. Use preview to see the exact swipe card other people get. You choose what shows, except gender (always on the card) and sexual preference (always private).</p>
+    <p class="profile-actions">
+      <a class="primary-button" href="/profile/preview">Preview how you appear</a>
+    </p>
+
+    <section class="photo-editor">
+      <h2>Photos</h2>
+      {% set filled = session.filled_photo_count() %}
+      {% set remaining = photo_limit - filled %}
+      <p class="field-help">Add up to {{ photo_limit }} photos in one go. Drag a photo to change the order, or focus it and use the arrow keys. Large originals are compressed to 8-bit FHD+ HEIF (1080×2400). They stay in this browser session only.</p>
+      <div class="photo-slot-grid" id="photo-grid"{% if filled > 1 %} data-reorder="1"{% endif %}>
+        {% for slot in photo_slots %}
+          {% set stored = session.profile_photo_at(slot) %}
+          {% if stored %}
+            <div class="photo-slot" data-slot="{{ slot }}" tabindex="0" aria-grabbed="false" aria-label="Photo {{ slot + 1 }}. Drag to reorder.">
+              <p class="photo-drag-hint">Drag</p>
+              <picture>
+                <source srcset="/profile/photos/{{ slot }}/heif" type="image/heic">
+                <img src="/profile/photos/{{ slot }}" alt="Photo {{ slot + 1 }}" draggable="false">
+              </picture>
+              <p class="photo-slot-label">Photo {{ slot + 1 }}</p>
+              <form action="/profile/photos/{{ slot }}/remove" method="post">
+                <button class="secondary-button full" type="submit">Remove photo {{ slot + 1 }}</button>
+              </form>
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      {% if filled > 1 %}
+        <form id="photo-reorder-form" class="sr-only" action="/profile/photos/reorder" method="post">
+          {% for slot in range(filled) %}
+            <input type="hidden" name="order" value="{{ slot }}">
+          {% endfor %}
+        </form>
+      {% endif %}
+      {% if remaining > 0 %}
+        <form action="/profile/photos" method="post" enctype="multipart/form-data" class="photo-add-form">
+          <input id="photo-picker" class="sr-only" name="photo" type="file" multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,.heic,.heif,.avif,image/*" data-remaining="{{ remaining }}">
+          <label class="primary-button full photo-picker-label" for="photo-picker">{{ 'Add photos' if remaining > 1 else 'Add photo' }}</label>
+        </form>
+      {% endif %}
+    </section>
+    <script>
+      (function () {
+        var picker = document.getElementById("photo-picker");
+        if (picker) {
+          picker.addEventListener("change", function () {
+            var max = parseInt(picker.getAttribute("data-remaining") || "6", 10);
+            if (picker.files && picker.files.length > max && window.DataTransfer) {
+              var transfer = new DataTransfer();
+              var index = 0;
+              while (index < max) {
+                transfer.items.add(picker.files[index]);
+                index += 1;
+              }
+              picker.files = transfer.files;
+            }
+            if (picker.form) picker.form.submit();
+          });
+        }
+        var grid = document.getElementById("photo-grid");
+        var form = document.getElementById("photo-reorder-form");
+        if (!grid || !form || grid.getAttribute("data-reorder") !== "1") return;
+        var dragEl = null;
+        var origin = null;
+        function slots() {
+          return Array.prototype.slice.call(grid.querySelectorAll(".photo-slot"));
+        }
+        function submitOrder() {
+          var inputs = form.querySelectorAll('input[name="order"]');
+          var items = slots();
+          if (inputs.length !== items.length) return;
+          var changed = false;
+          items.forEach(function (item, index) {
+            var value = item.getAttribute("data-slot") || "";
+            if (inputs[index].value !== value) changed = true;
+            inputs[index].value = value;
+          });
+          if (changed) form.submit();
+        }
+        function moveBeforeOrAfter(over) {
+          if (!over || !dragEl || over === dragEl || !grid.contains(over)) return;
+          var items = slots();
+          var from = items.indexOf(dragEl);
+          var to = items.indexOf(over);
+          if (from < 0 || to < 0) return;
+          if (from < to) over.after(dragEl);
+          else over.before(dragEl);
+        }
+        grid.addEventListener("pointerdown", function (event) {
+          if (event.pointerType === "mouse" && event.button !== 0) return;
+          if (event.target.closest("button, form, a, input, label")) return;
+          var slot = event.target.closest(".photo-slot");
+          if (!slot) return;
+          origin = { x: event.clientX, y: event.clientY, slot: slot, id: event.pointerId };
+        });
+        window.addEventListener("pointermove", function (event) {
+          if (!origin || event.pointerId !== origin.id) return;
+          var dx = event.clientX - origin.x;
+          var dy = event.clientY - origin.y;
+          if (!dragEl && Math.abs(dx) + Math.abs(dy) < 8) return;
+          if (!dragEl) {
+            dragEl = origin.slot;
+            dragEl.classList.add("is-dragging");
+            dragEl.setAttribute("aria-grabbed", "true");
+            try { dragEl.setPointerCapture(event.pointerId); } catch (error) {}
+          }
+          event.preventDefault();
+          dragEl.style.pointerEvents = "none";
+          var hit = document.elementFromPoint(event.clientX, event.clientY);
+          dragEl.style.pointerEvents = "";
+          moveBeforeOrAfter(hit && hit.closest(".photo-slot"));
+        }, { passive: false });
+        function endDrag(event) {
+          if (!origin || event.pointerId !== origin.id) return;
+          if (dragEl) {
+            dragEl.classList.remove("is-dragging");
+            dragEl.setAttribute("aria-grabbed", "false");
+            submitOrder();
+            dragEl = null;
+          }
+          origin = null;
+        }
+        window.addEventListener("pointerup", endDrag);
+        window.addEventListener("pointercancel", endDrag);
+        grid.addEventListener("keydown", function (event) {
+          if (event.key !== "ArrowLeft" && event.key !== "ArrowRight" && event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+          if (event.target.closest("button, input")) return;
+          var slot = event.target.closest(".photo-slot");
+          if (!slot) return;
+          event.preventDefault();
+          var items = slots();
+          var index = items.indexOf(slot);
+          var next = (event.key === "ArrowLeft" || event.key === "ArrowUp") ? index - 1 : index + 1;
+          if (next < 0 || next >= items.length) return;
+          if (next < index) items[next].before(slot);
+          else items[next].after(slot);
+          slot.focus();
+          submitOrder();
+        });
+      })();
+    </script>
 
     <form action="/profile" method="post" class="settings-form">
-      <label for="display_name">Display name</label>
-      <input id="display_name" name="display_name" maxlength="64" value="{{ session.local_state.profile.display_name }}" placeholder="Your name">
+      <input type="hidden" name="card_visibility_present" value="1">
 
-      <label for="pronouns">Pronouns <span>optional</span></label>
-      <input id="pronouns" name="pronouns" maxlength="64" value="{{ session.local_state.profile.pronouns }}" placeholder="e.g. they/them">
+      <fieldset>
+        <legend>Photos on your card</legend>
+        {{ show_on_card("photos", vis) }}
+        <p class="field-help">Uncheck to show a letter instead of your photos.</p>
+      </fieldset>
 
-      <label for="about">About you</label>
-      <textarea id="about" name="about" maxlength="500" rows="5" placeholder="A few specific things someone could ask you about…">{{ session.local_state.profile.about }}</textarea>
+      <div class="field-with-visibility">
+        <label for="display_name">Display name</label>
+        {{ show_on_card("display_name", vis) }}
+      </div>
+      <input id="display_name" name="display_name" maxlength="64" autocomplete="nickname" value="{{ profile.display_name }}" placeholder="Your name">
+
+      <fieldset>
+        <legend>Age</legend>
+        {{ show_on_card("age", vis) }}
+        <p class="field-help">{% if profile_age %}Right now that is {{ profile_age }}, from the date you entered at the door.{% else %}Taken from the date you entered at the door.{% endif %}</p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Gender</legend>
+        <p class="always-on-card">Always shown on your card</p>
+        <p class="field-help">Pick up to 5 from the current catalog.</p>
+        <div class="choice-grid">
+          {% for option in gender_options %}
+            <label class="choice-card">
+              <input type="checkbox" name="gender_identities" value="{{ option }}" {% if option in profile.gender_identities %}checked{% endif %}>
+              <span>{{ option | choice_label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Sexual preference</legend>
+        <p class="always-private">Always private. Never shown on your card.</p>
+        <p class="field-help">Choose who you want to see. Leave all unchecked to see everyone. Same list lives in Filters as Show me.</p>
+        <div class="choice-grid">
+          {% for option in gender_options %}
+            <label class="choice-card">
+              <input type="checkbox" name="show_genders" value="{{ option }}" {% if option in session.selected_genders %}checked{% endif %}>
+              <span>{{ option | choice_label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <div class="field-with-visibility">
+        <label for="pronouns">Pronouns <span>optional</span></label>
+        {{ show_on_card("pronouns", vis) }}
+      </div>
+      <input id="pronouns" name="pronouns" maxlength="40" value="{{ profile.pronouns }}" placeholder="e.g. they/them">
+
+      <div class="field-with-visibility">
+        <label for="about">About you</label>
+        {{ show_on_card("about", vis) }}
+      </div>
+      <textarea id="about" name="about" maxlength="500" rows="5" placeholder="A few specific things someone could ask you about…">{{ profile.about }}</textarea>
+      <p class="field-help">{{ readiness.completed_count }} / {{ readiness.total_count }} basics filled. A name plus a short bio is enough to start.</p>
+
+      <fieldset>
+        <legend>Looking for</legend>
+        {{ show_on_card("looking_for", vis) }}
+        <p class="field-help">This line comes from Filters. Change it there.</p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Interests</legend>
+        {{ show_on_card("interests", vis) }}
+        <p class="field-help">Your current top 5 favorites.</p>
+        <div class="choice-grid">
+          {% for option in lifestyle_options %}
+            <label class="choice-card">
+              <input type="checkbox" name="lifestyle_tags" value="{{ option }}" {% if option in profile.lifestyle_tags %}checked{% endif %}>
+              <span>{{ option | choice_label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Hobbies</legend>
+        {{ show_on_card("hobbies", vis) }}
+        <p class="field-help">Your current top 5 favorites.</p>
+        <div class="choice-grid">
+          {% for option in hobby_options %}
+            <label class="choice-card">
+              <input type="checkbox" name="hobby_tags" value="{{ option }}" {% if option in profile.hobby_tags %}checked{% endif %}>
+              <span>{{ option | choice_label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Personality</legend>
+        {{ show_on_card("personality", vis) }}
+        <p class="field-help">Your current top 5 favorites. Calm, intense, and the rest of how you usually show up.</p>
+        <div class="choice-grid">
+          {% for option in personality_options %}
+            <label class="choice-card">
+              <input type="checkbox" name="personality_tags" value="{{ option }}" {% if option in profile.personality_tags %}checked{% endif %}>
+              <span>{{ option | choice_label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>In the bedroom</legend>
+        {{ show_on_card("bedroom", vis) }}
+        <p class="field-help">Your current top 5 favorites. Hidden on your card unless you check Show on my card. Adults 18+ only, self-declared.</p>
+        <div class="choice-grid">
+          {% for option in bedroom_options %}
+            <label class="choice-card">
+              <input type="checkbox" name="bedroom_tags" value="{{ option }}" {% if option in profile.bedroom_tags %}checked{% endif %}>
+              <span>{{ option | choice_label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </fieldset>
 
       <button class="primary-button full" type="submit">Save profile</button>
     </form>
+
+    <section class="settings-section share-section">
+      <div>
+        <p class="eyebrow">SHARE</p>
+        <h2>Share your card</h2>
+        <p>Creates a link to the same card other people see. It only works on this local app while this session is still running. Viewers must be 18+.</p>
+      </div>
+      <form action="/profile/share" method="post">
+        <button class="secondary-button" type="submit">{{ 'Refresh share link' if share_url else 'Create share link' }}</button>
+      </form>
+    </section>
+    {% if share_url %}
+      <label for="share-link">Share link</label>
+      <input id="share-link" class="share-link-field" readonly value="{{ share_url }}">
+      <p class="field-help">Copy this link and send it. It is not a public internet profile.</p>
+    {% endif %}
 
     <section class="settings-section">
       <div><p class="eyebrow">VERIFICATION</p><h2>Adult + identity verification</h2><p>Required before any real-user build. This local prototype does not claim identity proof.</p></div>
