@@ -54,6 +54,17 @@ def signup_relaxed_from_env() -> bool:
     return os.environ.get("GETFKD_SIGNUP_RELAXED", "").strip().lower() in {"1", "true", "yes"}
 
 
+def dev_skip_apple_from_env() -> bool:
+    return os.environ.get("GETFKD_DEV_SKIP_APPLE", "").strip().lower() in {"1", "true", "yes"}
+
+
+def allows_dev_apple_bypass(enabled: bool, headers: Mapping[str, str]) -> bool:
+    """Metro/dogfood only. Store and preview releases stay fail-closed."""
+    if not enabled:
+        return False
+    return header_value(headers, "X-Getfkd-Release").lower() not in {"store", "preview"}
+
+
 def signup_message(code: str) -> str:
     return SIGNUP_MESSAGES.get(code, SIGNUP_MESSAGES[SIGNUP_UNAUTHENTIC])
 

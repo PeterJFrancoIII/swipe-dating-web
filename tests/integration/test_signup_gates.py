@@ -171,6 +171,24 @@ async def test_photo_upload_does_not_mint_or_burn_session_cap() -> None:
 
 
 @pytest.mark.anyio
+async def test_photo_upload_accepts_session_form_field_without_header() -> None:
+    now = [NOW]
+    app, _private, _kid, _path = _strict_app(lambda: now[0])
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        token = await _open(client, "photo-form")
+        assert (await _age(client, token, install="photo-form")).status_code == 200
+        uploaded = await client.post(
+            "/api/profile/photos",
+            headers={**IP, "X-Getfkd-Install": "photo-form"},
+            data={"session": token},
+            files=[("photo", ("a.png", unique_png(94), "image/png"))],
+        )
+        assert uploaded.status_code == 200, uploaded.text
+        assert uploaded.json()["photo_count"] >= 1
+
+
+@pytest.mark.anyio
 async def test_birth_date_change_locks_session() -> None:
     now = [NOW]
     app, _private, _kid, _path = _strict_app(lambda: now[0])
@@ -209,6 +227,48 @@ async def test_finish_without_apple_stays_incomplete() -> None:
         assert finished.status_code == 401
         assert finished.json()["code"] == "apple_sign_in_required"
         assert finished.json()["onboarding_complete"] is False
+
+
+@pytest.mark.anyio
+async def test_dev_skip_apple_allows_metro_finish() -> None:
+    now = [NOW]
+    app, _private, _kid, _path = _strict_app(lambda: now[0])
+    app.state.session_store.dev_skip_apple = True
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        token = await _open(client, "skip-apple")
+        assert (await _age(client, token, install="skip-apple")).status_code == 200
+        now[0] += MIN_ONBOARDING_MS + 1
+        photos = await _photos(client, token, 41)
+        assert photos.status_code == 200
+        finished = await client.post(
+            "/api/onboarding",
+            headers=auth(token, {"X-Getfkd-Install": "skip-apple"}),
+            json=REQUIRED_ONBOARDING,
+        )
+        assert finished.status_code == 200, finished.text
+        assert finished.json()["onboarding_complete"] is True
+
+
+@pytest.mark.anyio
+async def test_dev_skip_apple_does_not_bypass_store_release() -> None:
+    now = [NOW]
+    app, _private, _kid, _path = _strict_app(lambda: now[0])
+    app.state.session_store.dev_skip_apple = True
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        token = await _open(client, "store-apple")
+        assert (await _age(client, token, install="store-apple")).status_code == 200
+        now[0] += MIN_ONBOARDING_MS + 1
+        photos = await _photos(client, token, 43)
+        assert photos.status_code == 200
+        finished = await client.post(
+            "/api/onboarding",
+            headers=auth(token, {"X-Getfkd-Install": "store-apple", "X-Getfkd-Release": "store"}),
+            json=REQUIRED_ONBOARDING,
+        )
+        assert finished.status_code == 401
+        assert finished.json()["code"] == "apple_sign_in_required"
 
 
 @pytest.mark.anyio

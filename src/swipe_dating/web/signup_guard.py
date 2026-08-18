@@ -23,8 +23,10 @@ from swipe_dating.domain.signup_fraud import (
     SIGNUP_UNAUTHENTIC,
     WEEK_MS,
     SignupFraudError,
+    allows_dev_apple_bypass,
     assert_birth_frozen,
     client_ip,
+    dev_skip_apple_from_env,
     hash_token,
     header_value,
     install_id,
@@ -74,15 +76,19 @@ def obtain_session(request: object, sessions: object) -> tuple[str, ResearchSess
     return token, session, True
 
 
-def require_existing_session(request: object, sessions: object) -> tuple[str, ResearchSession]:
+def require_existing_session(
+    request: object,
+    sessions: object,
+    token: str | None = None,
+) -> tuple[str, ResearchSession]:
     from swipe_dating.web.app import request_session_token
 
-    token = request_session_token(request)  # type: ignore[arg-type]
-    existing = sessions.get(token) if token else None  # type: ignore[attr-defined]
+    presented = (token or "").strip() or request_session_token(request)  # type: ignore[arg-type]
+    existing = sessions.get(presented) if presented else None  # type: ignore[attr-defined]
     if existing is None:
         raise SignupFraudError(SESSION_REQUIRED, status_code=401)
     apply_session_flags(existing, sessions)
-    return str(token), existing
+    return str(presented), existing
 
 
 def assert_not_locked(session: ResearchSession, sessions: object) -> None:
@@ -164,7 +170,9 @@ def finish_onboarding(session: ResearchSession, sessions: object, request: objec
     if getattr(sessions, "signup_relaxed", False):
         return
     if not sessions.apple_bound(session):  # type: ignore[attr-defined]
-        raise SignupFraudError(APPLE_SIGN_IN_REQUIRED, status_code=401)
+        skip = bool(getattr(sessions, "dev_skip_apple", False)) or dev_skip_apple_from_env()
+        if not allows_dev_apple_bypass(skip, getattr(request, "headers", {})):
+            raise SignupFraudError(APPLE_SIGN_IN_REQUIRED, status_code=401)
     now = sessions.now_ms()  # type: ignore[attr-defined]
     accepted = int(session.age_gate_accepted_at or 0)
     if accepted <= 0 or now - accepted < MIN_ONBOARDING_MS:

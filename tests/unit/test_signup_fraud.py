@@ -5,6 +5,7 @@ import pytest
 from swipe_dating.domain.signup_fraud import (
     UNKNOWN_BUCKET,
     SignupFraudError,
+    allows_dev_apple_bypass,
     assert_birth_frozen,
     birth_key_from_date,
     birth_key_from_range,
@@ -37,6 +38,14 @@ def test_birth_date_freeze_fails_closed() -> None:
     assert error.value.code == "signup_unauthentic"
     assert error.value.lock is True
     assert birth_key_from_date("2000-01-01") != birth_key_from_range(18)
+
+
+def test_dev_apple_bypass_skips_metro_not_store() -> None:
+    assert allows_dev_apple_bypass(False, {}) is False
+    assert allows_dev_apple_bypass(True, {}) is True
+    assert allows_dev_apple_bypass(True, {"X-Getfkd-Release": "store"}) is False
+    assert allows_dev_apple_bypass(True, {"X-Getfkd-Release": "preview"}) is False
+    assert allows_dev_apple_bypass(True, {"X-Getfkd-Release": "dev"}) is True
 
 
 def test_photo_hash_is_exact_bytes_only() -> None:
