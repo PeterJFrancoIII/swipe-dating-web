@@ -1,0 +1,49 @@
+<article class="dating-card public-card">
+  <div class="photo-surface profile-visual{% if not photo_url %} photo-p1{% endif %}" role="img" aria-label="{{ card_name }}">
+    {% if photo_url %}
+      <picture class="photo-user-image">
+        <source srcset="{{ heif_url }}" type="image/heic">
+        <img src="{{ photo_url }}" alt="">
+      </picture>
+    {% else %}
+      <div class="photo-monogram" aria-hidden="true">{{ monogram }}</div>
+    {% endif %}
+    <div class="photo-gradient" aria-hidden="true"></div>
+    {% if photo_count > 1 %}
+      <a class="photo-nav prev" href="?photo={{ prev_photo }}" aria-label="Previous photo">‹</a>
+      <a class="photo-nav next" href="?photo={{ next_photo }}" aria-label="Next photo">›</a>
+      <p class="photo-count">{{ photo_index + 1 }} / {{ photo_count }}</p>
+    {% endif %}
+    <div class="card-overlay">
+      <h1>{{ card_name }}{% if card_age %} <span>{{ card_age }}</span>{% endif %}</h1>
+      {% if card_gender %}<p class="card-gender">{{ card_gender }}</p>{% endif %}
+      {% if card_pronouns %}<p class="card-pronouns">{{ card_pronouns }}</p>{% endif %}
+      {% if card_looking %}<p class="looking-for">{{ card_looking }}</p>{% endif %}
+      {% if card_about %}<p class="card-bio">{{ card_about }}</p>{% endif %}
+      {% if card_interests %}
+        <p class="card-chip-label">Interests</p>
+        <div class="trait-row" aria-label="Interests">
+          {% for tag in card_interests %}<span>{{ tag | choice_label }}</span>{% endfor %}
+        </div>
+      {% endif %}
+      {% if card_hobbies %}
+        <p class="card-chip-label">Hobbies</p>
+        <div class="trait-row" aria-label="Hobbies">
+          {% for tag in card_hobbies %}<span>{{ tag | choice_label }}</span>{% endfor %}
+        </div>
+      {% endif %}
+      {% if card_personality %}
+        <p class="card-chip-label">Personality</p>
+        <div class="trait-row" aria-label="Personality">
+          {% for tag in card_personality %}<span>{{ tag | choice_label }}</span>{% endfor %}
+        </div>
+      {% endif %}
+      {% if card_bedroom %}
+        <p class="card-chip-label">In bed</p>
+        <div class="trait-row trait-row-bedroom" aria-label="In the bedroom">
+          {% for tag in card_bedroom %}<span>{{ tag | choice_label }}</span>{% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</article>

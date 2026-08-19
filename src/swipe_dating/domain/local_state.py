@@ -5,10 +5,21 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Final
 
+from swipe_dating.domain.gender_catalog import normalize_gender_identities
 from swipe_dating.domain.models import iso_from_ms
+from swipe_dating.domain.preferences import (
+    BEDROOM_OPTIONS,
+    HOBBY_OPTIONS,
+    INTEREST_OPTIONS,
+    MAX_PROFILE_TAGS,
+    PERSONALITY_OPTIONS,
+    PROFILE_PHOTO_IDS,
+    ProfileVisibility,
+    sanitize_visibility,
+)
 
 LOCAL_STATE_KEY: Final = "@swipe/rnd/local-state"
 LOCAL_STATE_SCHEMA_VERSION: Final = 2
@@ -20,6 +31,13 @@ class LocalProfile:
     display_name: str = ""
     about: str = ""
     pronouns: str = ""
+    gender_identities: tuple[str, ...] = ()
+    photo_id: str = ""
+    lifestyle_tags: tuple[str, ...] = ()
+    hobby_tags: tuple[str, ...] = ()
+    personality_tags: tuple[str, ...] = ()
+    bedroom_tags: tuple[str, ...] = ()
+    visibility: ProfileVisibility = field(default_factory=ProfileVisibility)
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +64,13 @@ class LocalState:
                 "displayName": self.profile.display_name,
                 "about": self.profile.about,
                 "pronouns": self.profile.pronouns,
+                "genderIdentities": list(self.profile.gender_identities),
+                "photoId": self.profile.photo_id,
+                "lifestyleTags": list(self.profile.lifestyle_tags),
+                "hobbyTags": list(self.profile.hobby_tags),
+                "personalityTags": list(self.profile.personality_tags),
+                "bedroomTags": list(self.profile.bedroom_tags),
+                "cardVisibility": self.profile.visibility.to_json(),
             },
             "cosmetics": {
                 "ownedSkinIds": list(self.cosmetics.owned_skin_ids),
@@ -92,6 +117,29 @@ def sanitize_local_state(value: object) -> LocalState:
             display_name=_clean_string(profile.get("displayName"), 64),
             about=_clean_string(profile.get("about"), 500),
             pronouns=_clean_string(profile.get("pronouns"), 40),
+            gender_identities=_gender_identities_from(profile),
+            photo_id=_allowed_choice(profile.get("photoId"), PROFILE_PHOTO_IDS),
+            lifestyle_tags=_allowed_tags(
+                profile.get("lifestyleTags"),
+                INTEREST_OPTIONS,
+                MAX_PROFILE_TAGS,
+            ),
+            hobby_tags=_allowed_tags(
+                profile.get("hobbyTags"),
+                HOBBY_OPTIONS,
+                MAX_PROFILE_TAGS,
+            ),
+            personality_tags=_allowed_tags(
+                profile.get("personalityTags"),
+                PERSONALITY_OPTIONS,
+                MAX_PROFILE_TAGS,
+            ),
+            bedroom_tags=_allowed_tags(
+                profile.get("bedroomTags"),
+                BEDROOM_OPTIONS,
+                MAX_PROFILE_TAGS,
+            ),
+            visibility=sanitize_visibility(profile.get("cardVisibility")),
         ),
         cosmetics=LocalCosmetics(
             owned_skin_ids=owned_skin_ids,
@@ -164,6 +212,13 @@ def deserialize_local_state(text: str | None) -> DeserializedLocalState:
     )
 
 
+def _gender_identities_from(profile: Mapping[str, object]) -> tuple[str, ...]:
+    raw = profile.get("genderIdentities")
+    if raw is None:
+        raw = profile.get("genderIdentity")
+    return normalize_gender_identities(raw)
+
+
 def _as_mapping(value: object) -> Mapping[str, object]:
     if isinstance(value, LocalState):
         return value.to_dict()
@@ -174,6 +229,25 @@ def _as_mapping(value: object) -> Mapping[str, object]:
 
 def _clean_string(value: object, max_length: int) -> str:
     return value.strip()[:max_length].rstrip() if isinstance(value, str) else ""
+
+
+def _allowed_choice(value: object, allowed: tuple[str, ...]) -> str:
+    cleaned = _clean_string(value, 40)
+    return cleaned if cleaned in allowed else ""
+
+
+def _allowed_tags(value: object, allowed: tuple[str, ...], max_items: int) -> tuple[str, ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes, bytearray)):
+        return ()
+    allowed_set = set(allowed)
+    result: list[str] = []
+    for entry in value:
+        cleaned = _clean_string(entry, 40)
+        if cleaned in allowed_set and cleaned not in result:
+            result.append(cleaned)
+        if len(result) >= max_items:
+            break
+    return tuple(result)
 
 
 def _unique_strings(value: object, max_items: int, max_length: int) -> tuple[str, ...]:

@@ -25,7 +25,7 @@
       {% block content %}{% endblock %}
     </main>
 
-    {% if session.adult_accepted and not current_path.startswith('/community') and current_path not in ['/profile', '/filters'] and not (current_path.startswith('/matches/') and current_path != '/matches/') %}
+    {% if session.adult_accepted and not current_path.startswith('/community') and not current_path.startswith('/profile') and not current_path.startswith('/p/') and current_path not in ['/filters'] and not (current_path.startswith('/matches/') and current_path != '/matches/') %}
       <nav class="bottom-nav" aria-label="Primary navigation">
         <a href="/discover" class="{{ 'active' if current_path == '/discover' else '' }}"{% if current_path == '/discover' %} aria-current="page"{% endif %}>
           <span class="nav-icon" aria-hidden="true">♡</span><span>Swipe</span>

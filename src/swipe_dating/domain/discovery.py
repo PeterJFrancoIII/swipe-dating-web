@@ -8,6 +8,7 @@ from dataclasses import dataclass, fields, is_dataclass
 from typing import Final
 
 from swipe_dating.domain.errors import DomainError
+from swipe_dating.domain.gender_catalog import genders_are_compatible
 from swipe_dating.domain.models import js_round
 
 IMMEDIATE_INTENTS: Final = (
@@ -84,6 +85,8 @@ class DiscoveryProfile:
     boundaries: tuple[str, ...]
     required_boundaries: tuple[str, ...]
     lifestyle_tags: tuple[str, ...]
+    genders: tuple[str, ...] = ()
+    feed_genders: tuple[str, ...] = ()
     alignment_score: float = 0
     distance_km: float = 0
     max_distance_km: float = 40
@@ -99,6 +102,8 @@ class DiscoveryProfile:
             "boundaries",
             "required_boundaries",
             "lifestyle_tags",
+            "genders",
+            "feed_genders",
         ):
             object.__setattr__(self, name, tuple(getattr(self, name)))
 
@@ -172,6 +177,8 @@ def evaluate_discovery_candidate(
         exclusions.append("candidate_does_not_accept_viewer_relational_openness")
     if candidate.relational_openness not in viewer.accepted_relational_openness:
         exclusions.append("viewer_does_not_accept_candidate_relational_openness")
+    if not genders_are_compatible(viewer.feed_genders, candidate.genders):
+        exclusions.append("gender_feed_mismatch")
 
     candidate_boundaries = set(candidate.boundaries)
     exclusions.extend(

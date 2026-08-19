@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import secrets
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 
 from swipe_dating.adapters.storage import LocalStateRepository
-from swipe_dating.domain.adult import is_adult_on, parse_date_only
+from swipe_dating.domain.adult import completed_age_years, is_adult_on, parse_date_only
 from swipe_dating.domain.bot_moderation import (
     CommunityMember,
     ModerationCase,
@@ -48,7 +49,16 @@ from swipe_dating.domain.discovery import (
     rank_discovery_candidates,
 )
 from swipe_dating.domain.errors import DomainError
+from swipe_dating.domain.gender_catalog import normalize_gender_identities
 from swipe_dating.domain.local_state import LocalCosmetics, LocalProfile, LocalState, LocalUi
+from swipe_dating.domain.preferences import ProfileVisibility, combined_profile_tags
+from swipe_dating.domain.profile_photos import (
+    PROFILE_PHOTO_SLOTS,
+    ProfilePhoto,
+    empty_profile_photos,
+    normalize_photo_slot,
+    parse_profile_photo,
+)
 from swipe_dating.domain.profile_readiness import ProfileReadiness, assess_profile_readiness
 from swipe_dating.domain.proximity import (
     ProximityDecision,
@@ -109,6 +119,8 @@ class ResearchSession:
         )
         self._profiles = tuple(profiles)
         self._profiles_by_id = {profile.id: profile for profile in self._profiles}
+        self.profile_photos: tuple[ProfilePhoto | None, ...] = empty_profile_photos()
+        self.share_token: str | None = None
 
     def accept_adult_gate(self, birth_date: str) -> None:
         normalized = birth_date.strip()
@@ -125,8 +137,18 @@ class ResearchSession:
         )
         extras = tuple(sorted(self.required_boundaries.difference(LOCAL_VIEWER.boundaries)))
         selected_boundaries = (*boundaries, *extras)
+        saved_tags = combined_profile_tags(
+            self.local_state.profile.lifestyle_tags,
+            self.local_state.profile.hobby_tags,
+            self.local_state.profile.personality_tags,
+        )
         return replace(
             LOCAL_VIEWER,
+            display_name=self.local_state.profile.display_name or LOCAL_VIEWER.display_name,
+            about=self.local_state.profile.about or LOCAL_VIEWER.about,
+            lifestyle_tags=saved_tags or LOCAL_VIEWER.lifestyle_tags,
+            genders=self.local_state.profile.gender_identities,
+            feed_genders=tuple(self.selected_genders),
             immediate_intent=self.immediate_intent,
             relational_openness=self.relational_openness,
             boundaries=selected_boundaries,
@@ -332,12 +354,119 @@ class ResearchSession:
         display_name: str,
         about: str,
         pronouns: str,
+        gender_identities: tuple[str, ...] = (),
+        photo_id: str = "",
+        lifestyle_tags: tuple[str, ...] = (),
+        hobby_tags: tuple[str, ...] = (),
+        personality_tags: tuple[str, ...] = (),
+        bedroom_tags: tuple[str, ...] = (),
+        feed_genders: tuple[str, ...] = (),
+        visibility: ProfileVisibility | None = None,
     ) -> LocalState:
+        self.selected_genders = set(normalize_gender_identities(feed_genders, limit=None))
         self.local_state = replace(
             self.local_state,
-            profile=LocalProfile(display_name, about, pronouns),
+            profile=LocalProfile(
+                display_name=display_name,
+                about=about,
+                pronouns=pronouns,
+                gender_identities=normalize_gender_identities(gender_identities),
+                photo_id=photo_id,
+                lifestyle_tags=lifestyle_tags,
+                hobby_tags=hobby_tags,
+                personality_tags=personality_tags,
+                bedroom_tags=bedroom_tags,
+                visibility=visibility if visibility is not None else ProfileVisibility(),
+            ),
         )
         return self._persist()
+
+    def profile_age(self) -> int | None:
+        return completed_age_years(self.birth_date, self.today)
+
+    def set_profile_photo(self, slot: int, payload: bytes) -> ProfilePhoto:
+        self._require_adult()
+        index = normalize_photo_slot(slot)
+        photo = parse_profile_photo(payload)
+        photos = list(self.profile_photos)
+        photos[index] = photo
+        self._pack_photos(photos)
+        return photo
+
+    def add_profile_photo(self, payload: bytes) -> ProfilePhoto:
+        slot = self.next_empty_photo_slot()
+        if slot is None:
+            raise DomainError("photo_slots_full")
+        return self.set_profile_photo(slot, payload)
+
+    def clear_profile_photo(self, slot: int) -> None:
+        self._require_adult()
+        index = normalize_photo_slot(slot)
+        photos = list(self.profile_photos)
+        photos[index] = None
+        self._pack_photos(photos)
+
+    def move_profile_photo(self, slot: int, direction: str) -> None:
+        self._require_adult()
+        filled = [photo for photo in self.profile_photos if photo is not None]
+        index = normalize_photo_slot(slot)
+        if index >= len(filled):
+            raise DomainError("photo_slot_invalid")
+        if direction == "up":
+            target = index - 1
+        elif direction == "down":
+            target = index + 1
+        else:
+            raise DomainError("photo_move_invalid")
+        if target not in range(len(filled)):
+            return
+        filled[index], filled[target] = filled[target], filled[index]
+        self._pack_photos(list(filled))
+
+    def reorder_profile_photos(self, order: Sequence[int]) -> None:
+        self._require_adult()
+        filled = [photo for photo in self.profile_photos if photo is not None]
+        if len(order) != len(filled):
+            raise DomainError("photo_order_invalid")
+        seen: set[int] = set()
+        next_photos: list[ProfilePhoto] = []
+        for index in order:
+            if type(index) is not int or index in seen or index not in range(len(filled)):
+                raise DomainError("photo_order_invalid")
+            seen.add(index)
+            next_photos.append(filled[index])
+        self._pack_photos(list(next_photos))
+
+    def profile_photo_at(self, slot: int) -> ProfilePhoto | None:
+        if slot not in range(len(self.profile_photos)):
+            return None
+        return self.profile_photos[slot]
+
+    def first_profile_photo_slot(self) -> int | None:
+        for index, photo in enumerate(self.profile_photos):
+            if photo is not None:
+                return index
+        return None
+
+    def next_empty_photo_slot(self) -> int | None:
+        count = self.filled_photo_count()
+        if count >= PROFILE_PHOTO_SLOTS:
+            return None
+        return count
+
+    def filled_photo_count(self) -> int:
+        return sum(photo is not None for photo in self.profile_photos)
+
+    def ensure_share_token(self) -> str:
+        self._require_adult()
+        if not self.share_token:
+            self.share_token = secrets.token_urlsafe(16)
+        return self.share_token
+
+    def _pack_photos(self, photos: list[ProfilePhoto | None]) -> None:
+        packed: list[ProfilePhoto | None] = [photo for photo in photos if photo is not None]
+        packed.extend([None] * (PROFILE_PHOTO_SLOTS - len(packed)))
+        self.profile_photos = tuple(packed)
 
     def update_preferences(
         self,
@@ -345,12 +474,15 @@ class ResearchSession:
         immediate_intent: str,
         relational_openness: str,
         required_boundaries: tuple[str, ...],
+        feed_genders: tuple[str, ...] | None = None,
     ) -> None:
         if immediate_intent:
             self.immediate_intent = immediate_intent
         if relational_openness:
             self.relational_openness = relational_openness
         self.required_boundaries = set(required_boundaries)
+        if feed_genders is not None:
+            self.selected_genders = set(normalize_gender_identities(feed_genders, limit=None))
 
     def profile_readiness(self) -> ProfileReadiness:
         profile = self.local_state.profile
@@ -389,6 +521,9 @@ class ResearchSession:
     def reset_saved_profile(self) -> LocalState:
         self.local_state = self.repository.clear()
         self.active_tab = "Swipe"
+        self.profile_photos = empty_profile_photos()
+        self.share_token = None
+        self.selected_genders = set()
         return self.local_state
 
     def export_saved_profile(self) -> str:

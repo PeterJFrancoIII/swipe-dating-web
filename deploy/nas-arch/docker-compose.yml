@@ -1,0 +1,75 @@
+name: swipe-dating
+
+services:
+  swipe-dating-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: swipe-dating-web:latest
+    container_name: swipe-dating-web
+    hostname: swipe-dating-web
+    restart: unless-stopped
+    environment:
+      TZ: America/New_York
+      SWIPE_WEB_OPEN_BROWSER: "0"
+      HOST: "127.0.0.1"
+      PORT: "8080"
+      SWIPE_CATALOG_DIR: "/opt/swipe/data/catalog"
+      SWIPE_DATA_DIR: "/opt/swipe/data"
+      SWIPE_HOT_DECK_RAM_MB: "48"
+      SWIPE_MAX_CONCURRENT: "8"
+      SWIPE_RATE_PER_SEC: "12"
+      SWIPE_RATE_BURST: "24"
+      SWIPE_ENCODE_SLOTS: "1"
+      SWIPE_UVICORN_CONCURRENCY: "16"
+      GETFKD_APPLE_AUDIENCE: "app.getfkd.ios"
+      GETFKD_DEV_SKIP_APPLE: "1"
+      GETFKD_OPERATOR_PASSWORD: "${GETFKD_OPERATOR_PASSWORD:-}"
+    volumes:
+      - ./data:/opt/swipe/data
+    ports:
+      - "127.0.0.1:18081:8081"
+      - "192.168.0.193:18081:8081"
+    networks:
+      swipe_dating_lan: {}
+    mem_limit: 512m
+    memswap_limit: 512m
+    pids_limit: 256
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /opt/swipe/run:rw,noexec,nosuid,size=8m,uid=1026,gid=100
+      - /opt/swipe/tmp:rw,noexec,nosuid,size=80m,uid=1026,gid=100
+      - /var/lib/nginx:rw,noexec,nosuid,size=16m,uid=1026,gid=100
+      - /var/log/nginx:rw,noexec,nosuid,size=8m,uid=1026,gid=100
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "1026:100"
+    stop_grace_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/opt/swipe/venv/bin/python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/healthz', timeout=3)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+networks:
+  swipe_dating_lan:
+    name: swipe_dating_lan
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.81.0/24

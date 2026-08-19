@@ -94,6 +94,26 @@ def test_mutual_eligibility_and_required_boundaries_are_hard_gates(
     assert exclusion in result.exclusions
 
 
+def test_gender_feed_filter_excludes_non_matching_identities() -> None:
+    watching = DiscoveryProfile(
+        id="viewer",
+        immediate_intent="casual_dating",
+        relational_openness="open_to_more",
+        accepted_immediate_intents=("casual_dating", "friends_with_benefits"),
+        accepted_relational_openness=("open_to_more", "relationship_possible"),
+        boundaries=("condoms_required", "public_first_meet", "no_drugs"),
+        required_boundaries=("condoms_required", "public_first_meet"),
+        lifestyle_tags=("live_music", "hiking", "movie_night"),
+        feed_genders=("man",),
+        max_distance_km=40,
+    )
+    blocked = evaluate_discovery_candidate(watching, candidate(genders=("woman",)))
+    assert blocked.eligible is False
+    assert "gender_feed_mismatch" in blocked.exclusions
+    allowed = evaluate_discovery_candidate(watching, candidate(genders=("man", "trans_man")))
+    assert allowed.eligible is True
+
+
 def test_eligible_candidate_has_explainable_fixed_weight_score() -> None:
     result = evaluate_discovery_candidate(viewer(), candidate())
     assert result.eligible
